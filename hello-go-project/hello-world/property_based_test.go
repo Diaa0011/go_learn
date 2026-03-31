@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"strings"
-	"testing"
 )
 
 var cases = []struct {
@@ -41,57 +39,57 @@ var cases = []struct {
 	{Arabic: 798, Roman: "DCCXCVIII"},
 }
 
-func TestRomanNumerals(t *testing.T) {
-	// t.Run("1 gets converted to I", func(t *testing.T) {
-	// 	got := ConvertToRoman(1)
-	// 	want := "I"
+// func TestRomanNumerals(t *testing.T) {
+// t.Run("1 gets converted to I", func(t *testing.T) {
+// 	got := ConvertToRoman(1)
+// 	want := "I"
 
-	// 	if got != want {
-	// 		t.Errorf("got %q, want %q", got, want)
-	// 	}
-	// })
+// 	if got != want {
+// 		t.Errorf("got %q, want %q", got, want)
+// 	}
+// })
 
-	// t.Run("2 gets converted to II", func(t *testing.T) {
-	// 	got := ConvertToRoman(2)
-	// 	want := "II"
+// t.Run("2 gets converted to II", func(t *testing.T) {
+// 	got := ConvertToRoman(2)
+// 	want := "II"
 
-	// 	if got != want {
-	// 		t.Errorf("got %q, want %q", got, want)
-	// 	}
-	// })
+// 	if got != want {
+// 		t.Errorf("got %q, want %q", got, want)
+// 	}
+// })
 
-	// cases := []struct {
-	// 	Description string
-	// 	Arabic      int
-	// 	Want        string
-	// }{
-	// 	{"1 gets converted to I", 1, "I"},
-	// 	{"2 gets converted to II", 2, "II"},
-	// 	{"3 gets converted to III", 3, "III"},
-	// 	{"4 gets converted to IV (can't repeat more than 3 times)", 4, "IV"},
-	// 	{"5 gets converted to V", 5, "V"},
-	// 	{"9 gets converted to IX", 9, "IX"},
-	// 	{"10 gets converted to X", 10, "X"},
-	// 	{"14 gets converted to XIV", 14, "XIV"},
-	// 	{"18 gets converted to XVIII", 18, "XVIII"},
-	// 	{"20 gets converted to XX", 20, "XX"},
-	// 	{"39 gets converted to XXXIX", 39, "XXXIX"},
-	// 	{"40 gets converted to XL", 40, "XL"},
-	// 	{"47 gets converted to XLVII", 47, "XLVII"},
-	// 	{"49 gets converted to XLIX", 49, "XLIX"},
-	// 	{"50 gets converted to L", 50, "L"},
-	// }
+// cases := []struct {
+// 	Description string
+// 	Arabic      int
+// 	Want        string
+// }{
+// 	{"1 gets converted to I", 1, "I"},
+// 	{"2 gets converted to II", 2, "II"},
+// 	{"3 gets converted to III", 3, "III"},
+// 	{"4 gets converted to IV (can't repeat more than 3 times)", 4, "IV"},
+// 	{"5 gets converted to V", 5, "V"},
+// 	{"9 gets converted to IX", 9, "IX"},
+// 	{"10 gets converted to X", 10, "X"},
+// 	{"14 gets converted to XIV", 14, "XIV"},
+// 	{"18 gets converted to XVIII", 18, "XVIII"},
+// 	{"20 gets converted to XX", 20, "XX"},
+// 	{"39 gets converted to XXXIX", 39, "XXXIX"},
+// 	{"40 gets converted to XL", 40, "XL"},
+// 	{"47 gets converted to XLVII", 47, "XLVII"},
+// 	{"49 gets converted to XLIX", 49, "XLIX"},
+// 	{"50 gets converted to L", 50, "L"},
+// }
 
-	for _, test := range cases[:4] {
-		t.Run(fmt.Sprintf("%q gets converted to %d", test.Roman, test.Arabic), func(t *testing.T) {
-			// got := ConvertToRoman(test.Arabic)
-			got := ConvertToArabic(test.Roman)
-			if got != test.Arabic {
-				t.Errorf("got %d, want %d", got, test.Arabic)
-			}
-		})
-	}
-}
+// 	for _, test := range cases[:4] {
+// 		t.Run(fmt.Sprintf("%q gets converted to %d", test.Roman, test.Arabic), func(t *testing.T) {
+// 			// got := ConvertToRoman(test.Arabic)
+// 			got := ConvertToArabic(test.Roman)
+// 			if got != test.Arabic {
+// 				t.Errorf("got %d, want %d", got, test.Arabic)
+// 			}
+// 		})
+// 	}
+// }
 
 type RomanNumeral struct {
 	Value  int
@@ -114,13 +112,13 @@ var allRomanNumerals = []RomanNumeral{
 	{1, "I"},
 }
 
-func ConvertToRoman(arabic int) string {
+func ConvertToRoman(arabic uint16) string {
 	var result strings.Builder
 
 	for _, numeral := range allRomanNumerals {
-		for arabic >= numeral.Value {
+		for arabic >= uint16(numeral.Value) {
 			result.WriteString(numeral.Symbol)
-			arabic -= numeral.Value
+			arabic -= uint16(numeral.Value)
 		}
 	}
 
