@@ -1,0 +1,56 @@
+package generics
+
+type Transaction struct {
+	From string
+	To   string
+	Sum  float64
+}
+
+type Account struct {
+	Name    string
+	Balance float64
+}
+
+type Person struct {
+	Name string
+}
+
+func NewTransaction(from, to Account, sum float64) Transaction {
+	return Transaction{From: from.Name, To: to.Name, Sum: sum}
+}
+
+func NewBalanceFor(account Account, transactions []Transaction) Account {
+	return Reduce(
+		transactions,
+		applyTransaction,
+		account,
+	)
+}
+
+func applyTransaction(a Account, transaction Transaction) Account {
+	if transaction.From == a.Name {
+		a.Balance -= transaction.Sum
+	}
+	if transaction.To == a.Name {
+		a.Balance += transaction.Sum
+	}
+	return a
+}
+
+func Reduce[A, B any](collection []A, f func(B, A) B, initialValue B) B {
+	var result = initialValue
+	for _, x := range collection {
+		result = f(result, x)
+	}
+
+	return result
+}
+
+func Find[A any](items []A, predicate func(A) bool) (value A, found bool) {
+	for _, v := range items {
+		if predicate(v) {
+			return v, true
+		}
+	}
+	return
+}
