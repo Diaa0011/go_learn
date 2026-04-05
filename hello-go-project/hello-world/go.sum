@@ -1,0 +1,10 @@
+github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8vS6K3D0=
+github.com/alecthomas/assert/v2 v2.11.0/go.mod h1:Bze95FyfUr7x34QZrjL+XP+0qgp/zg8yS+TtBj1WA3k=
+github.com/alecthomas/repr v0.4.0 h1:GhI2A8MACjfegCPVq9f1FLvIBS+DrQ2KQBFZP1iFzXc=
+github.com/alecthomas/repr v0.4.0/go.mod h1:Fr0507jx4eOXV7AlPV6AVZLYrLIuIeSOWtW57eE/O/4=
+github.com/approvals/go-approval-tests v1.9.1 h1:LELsegchpz1f7MIgrQ0k6RKd6z0G1C3acpidELZnVok=
+github.com/approvals/go-approval-tests v1.9.1/go.mod h1:3HKg6haD0Wg6p1SiA8/xHWg/xu4qnsB73ocJoo6zNy8=
+github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
+github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
+github.com/quii/go-graceful-shutdown v0.6.0 h1:IIg2CnIdQWk/0yN+MOXdD5BJfa2CadfI50G7k+MopuU=
+github.com/quii/go-graceful-shutdown v0.6.0/go.mod h1:ovmTZZhfF99Z1JEmQjMzf+YelQDbUQ0L/E/fc5KFdiM=
