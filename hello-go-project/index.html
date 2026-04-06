@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MyFatoorah | Direct Browser Checkout</title>
+    <script src="https://demo.myfatoorah.com/sessions/v1/session.js"></script>
+
+    <style>
+        :root { 
+            --primary: #4daee0; 
+            --success: #22c55e; 
+            --error: #ef4444; 
+            --bg: #f1f5f9; 
+            --text-main: #1e293b;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: var(--bg); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+        }
+
+        .container { 
+            width: 90%; 
+            max-width: 450px; 
+            background: #ffffff; 
+            padding: 2rem; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); 
+            position: relative; 
+            overflow: hidden;
+        }
+
+        .init-btn { 
+            width: 100%; 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 16px; 
+            border-radius: 10px; 
+            font-weight: 600; 
+            font-size: 1rem;
+            cursor: pointer; 
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .init-btn:hover { background: #3b97c9; }
+        .init-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+        #unified-session { 
+            min-height: 350px; 
+            border: 2px dashed #e2e8f0; 
+            border-radius: 12px; 
+            margin-top: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fafafa;
+        }
+
+        #result-overlay {
+            display: none; 
+            position: absolute; 
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.95); 
+            z-index: 100; 
+            flex-direction: column;
+            justify-content: center; 
+            align-items: center; 
+            text-align: center; 
+            padding: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            text-align: center;
+            margin-top: 15px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="result-overlay">
+        <div id="resIcon" style="font-size: 60px; margin-bottom: 10px;"></div>
+        <div id="resTitle" style="font-size: 1.5rem; font-weight: 800; margin-bottom: 10px;"></div>
+        <p id="resMsg" style="color: #64748b; margin-bottom: 25px; line-height: 1.5;"></p>
+        <button class="init-btn" style="width: auto; padding: 12px 30px;" onclick="location.reload()">Try Again</button>
+    </div>
+
+    <h2 style="text-align:center; color:var(--text-main); margin-bottom: 8px;">Secure Checkout</h2>
+    <p id="infoText" style="text-align:center; color:#64748b; margin-bottom:2rem; font-size: 0.9rem;">Complete your transaction securely</p>
+
+    <button id="payBtn" class="init-btn" onclick="startAutomatedFlow()">Initialize Payment</button>
+
+    <div id="unified-session">
+        <p id="placeholder" style="color: #94a3b8; font-weight: 500;">Payment form will appear here</p>
+    </div>
+
+    <div class="status-badge" id="debugStatus">System Ready</div>
+</div>
+
+<script>
+    // Configuration
+    const TOKEN = "SK_KWT_Uw42KMHRKdVNZLHC4KEBTkHxOMfVsQi4txBkvQ1A1iAbVDdfPRhFsMQLVLkLXY3S";
+    const PROXY = "https://cors-anywhere.herokuapp.com/"; 
+    const API_URL = "https://apitest.myfatoorah.com/v3/sessions";
+
+    async function startAutomatedFlow() {
+        const btn = document.getElementById('payBtn');
+        const placeholder = document.getElementById('placeholder');
+        const status = document.getElementById('debugStatus');
+        
+        btn.disabled = true;
+        btn.innerText = "Generating Session...";
+        status.innerText = "Communicating with MyFatoorah...";
+
+        try {
+            const response = await fetch(PROXY + API_URL, {
+                method: "POST",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${TOKEN}`
+                },
+                body: JSON.stringify({
+                    "PaymentMode": "COMPLETE_PAYMENT",
+                    "Order": { "Amount": 10, "Currency": "KWD" }
+                })
+            });
+            
+            const result = await response.json();
+
+            if (result.IsSuccess && result.Data.SessionId) {
+                status.innerText = "Session Active";
+                btn.style.display = "none";
+                initMF(result.Data.SessionId);
+            } else {
+                throw new Error(result.ValidationErrors?.[0]?.Error || result.Message || "Session creation failed");
+            }
+        } catch (err) {
+            btn.disabled = false;
+            btn.innerText = "Retry Generation";
+            status.innerText = "Error Occurred";
+            placeholder.innerHTML = `<div style="padding:20px; color:var(--error); text-align:center;">
+                <b>Initialization Failed</b><br>
+                <small>${err.message}</small>
+            </div>`;
+        }
+    }
+
+    function initMF(sid) {
+        // Clear placeholder and border before init
+        const container = document.getElementById('unified-session');
+        container.style.border = "none";
+        container.style.background = "transparent";
+        container.innerHTML = ""; 
+
+        myfatoorah.init({
+            sessionId: sid,
+            containerId: "unified-session",
+            callback: (res) => handleResult(res),
+            settings: {
+                card: {
+                    style: {
+                        label: {
+                            color: "#475569",
+                            fontWeight: "600",
+                            fontFamily: "Segoe UI",
+                            fontSize: "14px"
+                        },
+                        input: {
+                            color: "#1e293b",
+                            fontSize: "16px",
+                            borderRadius: "8px",
+                            border: "1px solid #cbd5e1"
+                        },
+                        button: {
+                            backgroundColor: "#4daee0",
+                            textContent: "Pay Now",
+                            borderRadius: "8px"
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+ function handleResult(response) {
+    const overlay = document.getElementById('result-overlay');
+    const icon = document.getElementById('resIcon');
+    const title = document.getElementById('resTitle');
+    const msg = document.getElementById('resMsg');
+
+    overlay.style.display = 'flex'; 
+
+    // DEBUG: Look at the console to see the exact structure
+    console.log("Response Data:", response);
+
+    // 1. Check top-level success
+    const topLevelSuccess = response.isSuccess || response.message?.toLowerCase() === "success";
+    
+    // 2. Check internal transaction status (This is what your dashboard sees)
+    // We look into the first transaction in the list
+    const innerTransaction = response.data?.InvoiceTransactions?.[0];
+    const innerSuccess = innerTransaction?.TransactionStatus?.toLowerCase() === "captured" || 
+                         innerTransaction?.TransactionStatus?.toLowerCase() === "success";
+
+    // If either the top level is happy OR the inner transaction is captured, it's a WIN
+    if (topLevelSuccess || innerSuccess) {
+        icon.innerText = "✅";
+        icon.style.color = "var(--success)";
+        title.innerText = "Payment Successful";
+        title.style.color = "var(--success)";
+        
+        // Show the real Payment ID from the dashboard
+        const paymentId = innerTransaction?.PaymentId || response.sessionId || "Confirmed";
+        msg.innerText = "Transaction ID: " + paymentId;
+    } else {
+        icon.innerText = "❌";
+        icon.style.color = "var(--error)";
+        title.innerText = "Transaction Failed";
+        title.style.color = "var(--error)";
+        
+        // Try to show the real error if the bank gave one
+        let errorMsg = innerTransaction?.Error || response.message || "Declined by Provider";
+        msg.innerText = "Reason: " + errorMsg;
+    }
+}
+</script>
+
+</body>
+</html>
