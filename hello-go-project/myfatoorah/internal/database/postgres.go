@@ -19,11 +19,10 @@ func InitDB() *gorm.DB {
 	}
 
 	fmt.Println("---> Running migrations...")
-	err = db.AutoMigrate(&models.Invoice{})
+	log.Println("Running migrations for Sessions and Transactions...")
+	err = db.AutoMigrate(&models.Session{}, &models.Transaction{}) // Updated
 	if err != nil {
-		fmt.Println("!!! Migration Error:", err) // This will tell us EXACTLY why the table isn't there
-	} else {
-		fmt.Println("---> Migration successful!")
+		fmt.Println("!!! Migration Error:", err)
 	}
 
 	return db

@@ -1,21 +1,20 @@
 package main
 
 import (
-	"fmt"
 	"hello-go-project/myfatoorah/internal/database"
-	"hello-go-project/myfatoorah/internal/models"
+	"hello-go-project/myfatoorah/internal/handlers"
 
 	_ "hello-go-project/myfatoorah/cmd/api/docs"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"gorm.io/gorm"
 )
 
 // @title MyFatoorah API
 // @version 1.0
 // @description This is a sample server for MyFatoorah.
-// @host 2c03-196-156-78-10.ngrok-free.app
 // @BasePath /
 
 func main() {
@@ -24,30 +23,34 @@ func main() {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	r.GET("/invoices", models.GetAllInvoices(db))
+	// New Session endpoint
+	r.GET("/sessions", handlers.GetAllSessions(db))
 
-	r.POST("/index.php", func(c *gin.Context) {
-		// 2. Capture the "route" parameter from the URL
-		route := c.Query("route")
+	r.GET("/transactions", handlers.GetAllTransactions(db))
+	r.POST("/sessions", handlers.CreateSessionHandler(db))
 
-		// 3. Check if it matches the MyFatoorah webhook path
-		if route == "extension/myfatoorah/payment/myfatoorah.webhook" {
-
-			// Handle the MyFatoorah Logic Here
-			var webhookData map[string]interface{}
-			if err := c.ShouldBindJSON(&webhookData); err != nil {
-				c.JSON(400, gin.H{"error": "Invalid JSON"})
-				return
-			}
-
-			fmt.Println("Webhook Received:", webhookData)
-			c.JSON(200, gin.H{"status": "ok"})
-
-		} else {
-			// If it's index.php but the wrong route parameter
-			c.JSON(404, gin.H{"message": "Route not found"})
-		}
-	})
+	r.POST("/index.php", MyFatoorahRouterHandler(db))
 
 	r.Run(":8080")
+}
+
+// MyFatoorahRouterHandler handles the legacy PHP-style routing
+// @Summary MyFatoorah Webhook
+// @Description Receives status updates from MyFatoorah via the route query parameter.
+// @Tags webhooks
+// @Accept json
+// @Produce json
+// @Param route query string true "Must be: extension/myfatoorah/payment/myfatoorah.webhook"
+// @Success 200 {string} string "OK"
+// @Failure 404 {object} map[string]string "message: Route not found"
+// @Router /index.php [post]
+func MyFatoorahRouterHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		route := c.Query("route")
+		if route == "extension/myfatoorah/payment/myfatoorah.webhook" {
+			handlers.MyFatoorahWebhookHandler(db)(c)
+		} else {
+			c.JSON(404, gin.H{"message": "Route not found"})
+		}
+	}
 }

@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/index.php": {
             "post": {
-                "description": "Receives status updates from MyFatoorah.",
+                "description": "Receives status updates from MyFatoorah via the route query parameter.",
                 "consumes": [
                     "application/json"
                 ],
@@ -28,29 +28,129 @@ const docTemplate = `{
                     "webhooks"
                 ],
                 "summary": "MyFatoorah Webhook",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Must be: extension/myfatoorah/payment/myfatoorah.webhook",
+                        "name": "route",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    "404": {
+                        "description": "message: Route not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
         },
-        "/invoices": {
+        "/sessions": {
             "get": {
                 "tags": [
-                    "invoices"
+                    "sessions"
                 ],
-                "summary": "Get All Invoices",
+                "summary": "Get All Sessions with Transactions",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/internal_models.Invoice"
+                                "$ref": "#/definitions/hello-go-project_myfatoorah_internal_models.Session"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sessions"
+                ],
+                "summary": "Create a new payment session",
+                "parameters": [
+                    {
+                        "description": "Session Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/hello-go-project_myfatoorah_internal_dto.CreateSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/transactions": {
+            "get": {
+                "description": "Retrieves a list of all payment transactions with search, filter, and sorting.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transactions"
+                ],
+                "summary": "Get All Transactions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search by Order ID or Reference",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by Status (e.g., SUCCESS, FAILED)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field to sort by (default: created_at)",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order direction (asc, desc)",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/hello-go-project_myfatoorah_internal_models.Transaction"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
                             }
                         }
                     }
@@ -59,52 +159,126 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "gorm.DeletedAt": {
+        "hello-go-project_myfatoorah_internal_dto.CreateSessionRequest": {
             "type": "object",
+            "required": [
+                "amount"
+            ],
             "properties": {
-                "time": {
+                "amount": {
+                    "type": "number"
+                },
+                "customer_id": {
+                    "description": "Nullable",
                     "type": "string"
                 },
-                "valid": {
-                    "description": "Valid is true if Time is not NULL",
-                    "type": "boolean"
+                "order_id": {
+                    "description": "Nullable",
+                    "type": "string"
+                },
+                "redirection_url": {
+                    "type": "string"
+                },
+                "session_expiry": {
+                    "description": "Nullable UTC time",
+                    "type": "string"
                 }
             }
         },
-        "internal_models.Invoice": {
+        "hello-go-project_myfatoorah_internal_models.Session": {
             "type": "object",
             "properties": {
-                "createdAt": {
+                "amount": {
+                    "description": "Order Details",
+                    "type": "number"
+                },
+                "created_at": {
+                    "description": "Metadata",
                     "type": "string"
                 },
                 "currency": {
                     "type": "string"
                 },
-                "deletedAt": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
+                "customer_email": {
+                    "type": "string"
+                },
+                "customer_name": {
+                    "description": "Customer Details (Mapped from the Customer object in response)",
+                    "type": "string"
+                },
+                "customer_reference": {
+                    "description": "This is your internal \"456123789\"",
+                    "type": "string"
+                },
+                "encryption_key": {
+                    "type": "string"
                 },
                 "id": {
-                    "type": "integer"
-                },
-                "invoiceID": {
-                    "type": "integer"
-                },
-                "invoiceReference": {
+                    "description": "Internal Primary Key",
                     "type": "string"
                 },
-                "invoiceStatus": {
+                "operation_type": {
+                    "description": "e.g., \"PAY\"",
                     "type": "string"
                 },
-                "invoiceValue": {
+                "session_expiry": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "description": "MyFatoorah Data",
+                    "type": "string"
+                },
+                "transactions": {
+                    "description": "Relations",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/hello-go-project_myfatoorah_internal_models.Transaction"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "hello-go-project_myfatoorah_internal_models.Transaction": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "customer_id": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "description": "This IS NOT in the DB",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "invoice_id": {
+                    "type": "integer"
+                },
+                "invoice_value": {
                     "type": "number"
                 },
-                "orderID": {
+                "merchant_id": {
                     "type": "string"
                 },
-                "transactionStatus": {
+                "order_id": {
                     "type": "string"
                 },
-                "updatedAt": {
+                "reference": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "description": "Change string to sql.NullString\tInvoiceID    int       ` + "`" + `gorm:\"uniqueIndex\" json:\"invoice_id\"` + "`" + `",
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -115,7 +289,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "2c03-196-156-78-10.ngrok-free.app",
+	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "MyFatoorah API",
