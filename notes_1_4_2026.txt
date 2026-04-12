@@ -1,0 +1,20 @@
+notes on 1 April 2026:
+	- links to view and read about (please read again about Dependency Injection in go before going into there)
+		- https://golang.org/doc/go1.16#fs
+		- https://deniseyu.github.io/leveling-up-tdd/ (leveling up TDD skills)
+		- https://pkg.go.dev/io/fs#ReadDir (file directory)
+		- https://golang.org/pkg/bufio/#Scanner (scanner docs in go)
+		- https://benjamincongdon.me/blog/2021/01/21/A-Tour-of-Go-116s-iofs-package/ (writing in go)
+		- https://github.com/golang/go/issues/41190 (Discussion in file system in go)
+		- https://pkg.go.dev/text/template (templates docs on go official docs)
+		- https://pkg.go.dev/embed (embed)
+		- https://www.youtube.com/watch?v=zyM2Ep28ED8 (approval test) -very important-
+		- https://stackoverflow.com/a/11074506/3193 (view models in templates)
+		- https://en.wikipedia.org/wiki/God_object (refresh on this subject)
+		- https://www.calhoun.io/intro-to-templates-p1-contextual-encoding/ (web dev with go)
+		- https://github.com/go-delve/delve (tutorial for delve for debugging and which is                  	                better or the default one in vscode)
+		
+		
+		- work e & pass: diaadawood.mas@gmail.com, 2932026@Mas
+
+

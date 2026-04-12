@@ -3,168 +3,269 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MyFatoorah | Direct Browser Checkout</title>
+    <title>MyFatoorah | Pro Dashboard</title>
     <script src="https://demo.myfatoorah.com/sessions/v1/session.js"></script>
 
     <style>
         :root { 
-            --primary: #4daee0; 
-            --success: #22c55e; 
-            --error: #ef4444; 
-            --bg: #f1f5f9; 
-            --text-main: #1e293b;
+            --primary: #0070f3; 
+            --bg: #f8fafc; 
+            --panel-bg: #ffffff;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --json-bg: #1e293b;
+        }
+
+        [data-theme="dark"] {
+            --bg: #020617; 
+            --panel-bg: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --json-bg: #000000;
         }
         
         body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; 
             background: var(--bg); 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
+            color: var(--text-main);
             margin: 0; 
+            display: flex;
+            height: 100vh;
+            transition: background 0.3s ease;
         }
 
-        .container { 
-            width: 90%; 
-            max-width: 450px; 
-            background: #ffffff; 
-            padding: 2rem; 
-            border-radius: 20px; 
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); 
-            position: relative; 
-            overflow: hidden;
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 40px;
+            box-sizing: border-box;
+            overflow-y: auto;
         }
 
-        .init-btn { 
-            width: 100%; 
-            background: var(--primary); 
-            color: white; 
-            border: none; 
-            padding: 16px; 
-            border-radius: 10px; 
-            font-weight: 600; 
-            font-size: 1rem;
-            cursor: pointer; 
-            transition: transform 0.2s, background 0.2s;
+        .left-panel { background: var(--panel-bg); border-right: 1px solid var(--border); }
+        .right-panel { background: var(--bg); }
+
+        .section-header { 
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 10px; 
+            margin-top: 20px;
+        }
+        .section-header:first-child { margin-top: 0; }
+
+        .card {
+            background: var(--card-bg); padding: 24px; border-radius: 12px;
+            border: 1px solid var(--border); margin-bottom: 24px;
         }
 
-        .init-btn:hover { background: #3b97c9; }
-        .init-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        .row { display: flex; gap: 10px; }
+        
+        label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: -5px; }
+        
+        input {
+            flex: 1; background: var(--bg); border: 1px solid var(--border);
+            padding: 12px; border-radius: 8px; color: var(--text-main); outline: none;
+            font-family: inherit;
+        }
+
+        .btn { 
+            cursor: pointer; border: none; border-radius: 8px; font-weight: 600; 
+            transition: 0.2s; padding: 12px 20px; font-size: 14px;
+        }
+        .btn-primary { background: var(--primary); color: white; width: 100%; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        
+        .copy-btn {
+            padding: 4px 8px; font-size: 11px; background: #334155; color: white;
+            border-radius: 4px; border: none; cursor: pointer; transition: 0.2s;
+        }
+        .copy-btn:hover { background: var(--primary); }
+
+        .viewer-container { position: relative; }
+        .viewer-actions { position: absolute; top: 10px; right: 10px; z-index: 10; }
 
         #unified-session { 
-            min-height: 350px; 
-            border: 2px dashed #e2e8f0; 
-            border-radius: 12px; 
-            margin-top: 25px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #fafafa;
+            min-height: 350px; background: white; border-radius: 8px; 
+            border: 1px solid var(--border); padding: 10px;
         }
 
-        #result-overlay {
-            display: none; 
-            position: absolute; 
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255, 255, 255, 0.95); 
-            z-index: 100; 
-            flex-direction: column;
-            justify-content: center; 
-            align-items: center; 
-            text-align: center; 
+        pre {
+            background: var(--json-bg);
             padding: 20px;
-            backdrop-filter: blur(5px);
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 0;
+            border: 1px solid var(--border);
+            max-height: 250px;
+            overflow-y: auto;
         }
+        .key { color: #7dd3fc; }
+        .string { color: #34d399; }
+        .number { color: #fbbf24; }
 
-        .status-badge {
-            font-size: 0.75rem;
-            text-align: center;
-            margin-top: 15px;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .badge { padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; background: #e2e8f0; color: #64748b; }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-info { background: #dbeafe; color: #1e40af; }
+
+        #success-state { display: none; text-align: center; padding: 40px 20px; }
+
+        .theme-toggle {
+            position: fixed; top: 10px; right: 10px; z-index: 1000;
+            background: var(--primary); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer;
         }
     </style>
 </head>
-<body>
+<body data-theme="light">
 
-<div class="container">
-    <div id="result-overlay">
-        <div id="resIcon" style="font-size: 60px; margin-bottom: 10px;"></div>
-        <div id="resTitle" style="font-size: 1.5rem; font-weight: 800; margin-bottom: 10px;"></div>
-        <p id="resMsg" style="color: #64748b; margin-bottom: 25px; line-height: 1.5;"></p>
-        <button class="init-btn" style="width: auto; padding: 12px 30px;" onclick="location.reload()">Try Again</button>
+    <button class="theme-toggle" onclick="toggleTheme()">🌓 Theme</button>
+
+    <div class="panel left-panel">
+        <div class="section-header"><h2>Payment Setup</h2></div>
+        
+        <div class="card" id="setupCard">
+            <div class="input-group">
+                <label>Manual Session Overide</label>
+                <div class="row">
+                    <input type="text" id="manualSid" placeholder="Paste Session ID...">
+                    <button class="btn btn-outline" onclick="loadManualSession()">Load</button>
+                </div>
+            </div>
+
+            <div class="input-group" style="margin-top: 10px;">
+                <label>Set Expiration Date (Local Time)</label>
+                <input type="datetime-local" id="expiryInput">
+            </div>
+
+            <button id="payBtn" class="btn btn-primary" onclick="startAutomatedFlow()">Generate Test Session</button>
+        </div>
+
+        <div id="form-container">
+            <div id="unified-session">
+                <div style="color: var(--text-muted); text-align:center; padding-top: 150px;">Waiting for Session...</div>
+            </div>
+        </div>
+
+        <div id="success-state">
+            <div style="font-size: 60px; margin-bottom: 20px;">✅</div>
+            <h2>Success</h2>
+            <button class="btn btn-outline" onclick="location.reload()">Start New</button>
+        </div>
     </div>
 
-    <h2 style="text-align:center; color:var(--text-main); margin-bottom: 8px;">Secure Checkout</h2>
-    <p id="infoText" style="text-align:center; color:#64748b; margin-bottom:2rem; font-size: 0.9rem;">Complete your transaction securely</p>
+    <div class="panel right-panel">
+        <div class="section-header">
+            <h2>1. Session Response</h2>
+            <span id="sessionBadge" class="badge">AWAITING SESSION</span>
+        </div>
+        <div class="viewer-container">
+            <div class="viewer-actions">
+                <button class="copy-btn" onclick="copyContent('sessionViewer')">Copy JSON</button>
+            </div>
+            <pre id="sessionViewer">// Initial data here...</pre>
+        </div>
 
-    <button id="payBtn" class="init-btn" onclick="startAutomatedFlow()">Initialize Payment</button>
-
-    <div id="unified-session">
-        <p id="placeholder" style="color: #94a3b8; font-weight: 500;">Payment form will appear here</p>
+        <div class="section-header">
+            <h2>2. Payment Result</h2>
+            <span id="statusBadge" class="badge">AWAITING PAYMENT</span>
+        </div>
+        <div class="viewer-container">
+            <div class="viewer-actions">
+                <button class="copy-btn" onclick="copyContent('jsonViewer')">Copy JSON</button>
+            </div>
+            <pre id="jsonViewer">// Result data here...</pre>
+        </div>
+        
+        <button class="btn btn-outline" style="margin-top: 24px;" onclick="location.reload()">Reset All</button>
     </div>
-
-    <div class="status-badge" id="debugStatus">System Ready</div>
-</div>
 
 <script>
-    // Configuration
     const TOKEN = "SK_KWT_Uw42KMHRKdVNZLHC4KEBTkHxOMfVsQi4txBkvQ1A1iAbVDdfPRhFsMQLVLkLXY3S";
     const PROXY = "https://cors-anywhere.herokuapp.com/"; 
     const API_URL = "https://apitest.myfatoorah.com/v3/sessions";
 
+    // Initialize the expiry input with a default (24 hours from now)
+    window.onload = () => {
+        const now = new Date();
+        now.setHours(now.getHours() + 24);
+        // Format to YYYY-MM-DDTHH:MM for datetime-local input
+        const localISO = now.toISOString().slice(0, 16);
+        document.getElementById('expiryInput').value = localISO;
+    };
+
+    function toggleTheme() {
+        document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+    }
+
+    async function copyContent(elementId) {
+        const text = document.getElementById(elementId).innerText;
+        try {
+            await navigator.clipboard.writeText(text);
+            const btn = document.querySelector(`#${elementId}`).parentElement.querySelector('.copy-btn');
+            const originalText = btn.innerText;
+            btn.innerText = "Copied!";
+            btn.style.background = "#22c55e";
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.background = "";
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy: ', err);
+        }
+    }
+
     async function startAutomatedFlow() {
         const btn = document.getElementById('payBtn');
-        const placeholder = document.getElementById('placeholder');
-        const status = document.getElementById('debugStatus');
+        const expiryVal = document.getElementById('expiryInput').value;
         
-        btn.disabled = true;
-        btn.innerText = "Generating Session...";
-        status.innerText = "Communicating with MyFatoorah...";
+        // Convert the input value to a proper ISO string for the API
+        const formattedExpiry = new Date(expiryVal).toISOString();
 
+        btn.innerText = "Generating...";
         try {
+            const requestBody = { 
+                "PaymentMode": "COMPLETE_PAYMENT", 
+                "ExpiryDate": formattedExpiry, // Sent in request
+                "Order": { "Amount": 1, "Currency": "KWD" } 
+            };
+
             const response = await fetch(PROXY + API_URL, {
                 method: "POST",
-                headers: {
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${TOKEN}`
+                headers: { 
+                    "Accept": "application/json", 
+                    "Content-Type": "application/json", 
+                    "Authorization": `Bearer ${TOKEN}` 
                 },
-                body: JSON.stringify({
-                    "PaymentMode": "COMPLETE_PAYMENT",
-                    "Order": { "Amount": 10, "Currency": "KWD" }
-                })
+                body: JSON.stringify(requestBody)
             });
-            
             const result = await response.json();
+            
+            document.getElementById('sessionBadge').innerText = "SESSION CREATED";
+            document.getElementById('sessionBadge').className = "badge badge-info";
+            document.getElementById('sessionViewer').innerHTML = syntaxHighlight(result);
 
-            if (result.IsSuccess && result.Data.SessionId) {
-                status.innerText = "Session Active";
-                btn.style.display = "none";
+            if(result.IsSuccess) {
                 initMF(result.Data.SessionId);
+                btn.innerText = "Session Active";
             } else {
-                throw new Error(result.ValidationErrors?.[0]?.Error || result.Message || "Session creation failed");
+                btn.innerText = "Error Generating";
             }
         } catch (err) {
-            btn.disabled = false;
-            btn.innerText = "Retry Generation";
-            status.innerText = "Error Occurred";
-            placeholder.innerHTML = `<div style="padding:20px; color:var(--error); text-align:center;">
-                <b>Initialization Failed</b><br>
-                <small>${err.message}</small>
-            </div>`;
+            alert("Check CORS Proxy: https://cors-anywhere.herokuapp.com/corsdemo");
+            btn.innerText = "Failed";
         }
     }
 
     function initMF(sid) {
-        // Clear placeholder and border before init
-        const container = document.getElementById('unified-session');
-        container.style.border = "none";
-        container.style.background = "transparent";
-        container.innerHTML = ""; 
-
+        document.getElementById('unified-session').innerHTML = ""; 
         myfatoorah.init({
             sessionId: sid,
             containerId: "unified-session",
@@ -172,70 +273,44 @@
             settings: {
                 card: {
                     style: {
-                        label: {
-                            color: "#475569",
-                            fontWeight: "600",
-                            fontFamily: "Segoe UI",
-                            fontSize: "14px"
-                        },
-                        input: {
-                            color: "#1e293b",
-                            fontSize: "16px",
-                            borderRadius: "8px",
-                            border: "1px solid #cbd5e1"
-                        },
-                        button: {
-                            backgroundColor: "#4daee0",
-                            textContent: "Pay Now",
-                            borderRadius: "8px"
-                        }
+                        input: { color: "#0f172a", fontSize: "16px", borderRadius: "8px" },
+                        button: { backgroundColor: "#0070f3", textContent: "Pay Now" }
                     }
                 }
             }
         });
     }
 
- function handleResult(response) {
-    const overlay = document.getElementById('result-overlay');
-    const icon = document.getElementById('resIcon');
-    const title = document.getElementById('resTitle');
-    const msg = document.getElementById('resMsg');
-
-    overlay.style.display = 'flex'; 
-
-    // DEBUG: Look at the console to see the exact structure
-    console.log("Response Data:", response);
-
-    // 1. Check top-level success
-    const topLevelSuccess = response.isSuccess || response.message?.toLowerCase() === "success";
-    
-    // 2. Check internal transaction status (This is what your dashboard sees)
-    // We look into the first transaction in the list
-    const innerTransaction = response.data?.InvoiceTransactions?.[0];
-    const innerSuccess = innerTransaction?.TransactionStatus?.toLowerCase() === "captured" || 
-                         innerTransaction?.TransactionStatus?.toLowerCase() === "success";
-
-    // If either the top level is happy OR the inner transaction is captured, it's a WIN
-    if (topLevelSuccess || innerSuccess) {
-        icon.innerText = "✅";
-        icon.style.color = "var(--success)";
-        title.innerText = "Payment Successful";
-        title.style.color = "var(--success)";
-        
-        // Show the real Payment ID from the dashboard
-        const paymentId = innerTransaction?.PaymentId || response.sessionId || "Confirmed";
-        msg.innerText = "Transaction ID: " + paymentId;
-    } else {
-        icon.innerText = "❌";
-        icon.style.color = "var(--error)";
-        title.innerText = "Transaction Failed";
-        title.style.color = "var(--error)";
-        
-        // Try to show the real error if the bank gave one
-        let errorMsg = innerTransaction?.Error || response.message || "Declined by Provider";
-        msg.innerText = "Reason: " + errorMsg;
+    function syntaxHighlight(json) {
+        if (typeof json != 'string') json = JSON.stringify(json, undefined, 4);
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g, function (match) {
+            var cls = 'number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) cls = 'key'; else cls = 'string';
+            } else if (/true|false/.test(match)) cls = 'boolean';
+            return '<span class="' + cls + '">' + match + '</span>';
+        });
     }
-}
+
+    function handleResult(response) {
+        document.getElementById('statusBadge').innerText = "RECEIVED";
+        document.getElementById('statusBadge').className = "badge badge-success";
+        document.getElementById('jsonViewer').innerHTML = syntaxHighlight(response);
+
+        if (response.isSuccess || response.paymentCompleted) {
+            document.getElementById('form-container').style.display = 'none';
+            document.getElementById('setupCard').style.display = 'none';
+            document.getElementById('success-state').style.display = 'block';
+        }
+    }
+
+    function loadManualSession() {
+        const sid = document.getElementById('manualSid').value.trim();
+        if (sid) {
+            document.getElementById('sessionViewer').innerHTML = "// Manual Session ID: " + sid;
+            initMF(sid);
+        }
+    }
 </script>
 
 </body>

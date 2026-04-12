@@ -23,11 +23,16 @@ func main() {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// Invoices
+	r.POST("/invoices", handlers.CreateInvoiceHandler(db))
+	r.GET("/invoices", handlers.GetAllInvoices(db))
+	r.GET("/invoices/:id", handlers.GetInvoice(db))
+
 	// New Session endpoint
 	r.GET("/sessions", handlers.GetAllSessions(db))
 
 	r.GET("/transactions", handlers.GetAllTransactions(db))
-	r.POST("/sessions", handlers.CreateSessionHandler(db))
+	r.POST("/sessions", handlers.CreateSessionHandlerv2(db))
 
 	r.POST("/index.php", MyFatoorahRouterHandler(db))
 

@@ -20,7 +20,7 @@ func InitDB() *gorm.DB {
 
 	fmt.Println("---> Running migrations...")
 	log.Println("Running migrations for Sessions and Transactions...")
-	err = db.AutoMigrate(&models.Session{}, &models.Transaction{}) // Updated
+	err = db.AutoMigrate(&models.Invoice{}, &models.Session{}, &models.Transaction{})
 	if err != nil {
 		fmt.Println("!!! Migration Error:", err)
 	}

@@ -1,0 +1,9 @@
+notes on 1 April 2026:
+	- https://en.wikipedia.org/wiki/Fear,_uncertainty,_and_doubt (FUD (fear, uncertainty and doubt)) -not really important-
+	- https://en.wikipedia.org/wiki/Fold_(higher-order_function) (read about this concept it is important,read also about reduce)
+	- https://en.wikipedia.org/wiki/Identity_element (math concept)
+	- https://cloud.google.com/blog/products/devops-sre/using-the-four-keys-to-measure-your-devops-performance (something related to kuberentes and devops lifecycle)
+	- https://martinfowler.com/articles/practical-test-pyramid.html (testing pyramid)
+	- https://en.wikipedia.org/wiki/Decorator_pattern (Decorator pattern)
+	- https://quii.dev/The_Why_of_TDD (the why of TDD)
+

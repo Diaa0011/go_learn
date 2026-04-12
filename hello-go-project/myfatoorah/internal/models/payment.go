@@ -9,7 +9,8 @@ import (
 
 type Session struct {
 	// Internal Primary Key
-	ID uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	InvoiceID uuid.UUID `gorm:"type:uuid;index" json:"invoice_id"`
 
 	// MyFatoorah Data
 	MyFatoorahSessionID string    `gorm:"uniqueIndex;not null" json:"session_id"`
@@ -36,20 +37,30 @@ type Session struct {
 }
 
 type Transaction struct {
-	ID           uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
-	SessionID    *uuid.UUID     `gorm:"type:uuid;index" json:"session_id"` // Change string to sql.NullString	InvoiceID    int       `gorm:"uniqueIndex" json:"invoice_id"`
-	InvoiceID    int            `gorm:"index" json:"invoice_id"`
-	Reference    string         `json:"reference"` // myfatoorah reference id
-	OrderID      string         `gorm:"index" json:"order_id"`
-	MerchantID   *string        `json:"merchant_id"`
-	CustomerID   *string        `json:"customer_id"`
-	Status       string         `gorm:"type:varchar(20)" json:"status"`
-	InvoiceValue float64        `gorm:"type:decimal(10,2)" json:"invoice_value"`
-	ErrorCode    *string        `gorm:"type:varchar(20)" json:"-"`
-	ErrorMessage string         `gorm:"-" json:"error_message"` // This IS NOT in the DB
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+	ID        uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	SessionID *uuid.UUID `gorm:"type:uuid;index" json:"session_id"`
+
+	// Now a regular index: allows the link creation + multiple payment attempts
+	InvoiceID   uuid.UUID `gorm:"index" json:"invoice_id"`
+	MFInvoiceID int       `gorm:"index" json:"mf_invoice_id"`
+
+	// Unique anchor: prevents the same PaymentId from duplicating
+	Reference *string `gorm:"unique;index" json:"reference"`
+
+	OrderID    string  `gorm:"index" json:"order_id"`
+	MerchantID *string `json:"merchant_id"`
+	CustomerID *string `json:"customer_id"`
+	Status     string  `gorm:"type:varchar(20)" json:"status"`
+
+	// Using decimal for money is safer than float64 in SQL
+	InvoiceValue float64 `gorm:"type:decimal(10,2)" json:"invoice_value"`
+
+	ErrorCode    *string `gorm:"type:varchar(20)" json:"error_code,omitempty"`
+	ErrorMessage string  `gorm:"-" json:"error_message"`
+
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 // WebhookRequest is the top-level structure sent by MyFatoorah
@@ -75,8 +86,8 @@ type WebhookData struct {
 		} `json:"MetaData"`
 	} `json:"Invoice"`
 	Transaction struct {
-		Status    string `json:"Status"`
-		PaymentId string `json:"PaymentId"`
+		Status    string  `json:"Status"`
+		PaymentId *string `json:"PaymentId"`
 		// Add this part to capture the error details
 		Error *struct {
 			Code    string `json:"Code"`

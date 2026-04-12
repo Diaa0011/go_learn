@@ -1,0 +1,28 @@
+- notes 31-3-2026
+	- links that will be read later (reflection, sync, mutex ...etc) -some technical debt-
+		- https://quii.gitbook.io/learn-go-with-tests/go-fundamentals/sync
+		
+		- https://pkg.go.dev/sync#Mutex
+ 		
+		- https://quii.gitbook.io/learn-go-with-tests/go-fundamentals/context
+		
+		- https://go.dev/blog/laws-of-reflection
+		
+		- https://pkg.go.dev/reflect#Kind
+		
+		- https://wiki.c2.com/?PrematureOptimization
+		
+		- https://wiki.c2.com/?MakeItWorkMakeItRightMakeItFast
+		
+		- https://go.dev/blog/defer-panic-and-recover
+		
+		- https://github.com/golang/go/issues/12854
+		
+		- https://blog.golang.org/context (context on golang blog)
+		
+		- https://faiface.github.io/post/context-should-go-away-go2/ (opinion for using context)
+		
+		- https://medium.com/@cep21/how-to-correctly-use-context-context-in-go-1-7-8f2c0fafdf39 (about context)
+		
+		
+	- Context (is like CancellationToken in C#) used to manage cancellation.

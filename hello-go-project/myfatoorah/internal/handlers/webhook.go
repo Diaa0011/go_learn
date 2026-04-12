@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -34,65 +35,78 @@ func MyFatoorahWebhookHandler(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		invoiceID, _ := strconv.Atoi(payload.Data.Invoice.Id)
+		mfInvoiceID, _ := strconv.Atoi(payload.Data.Invoice.Id)
 		invoiceVal, _ := strconv.ParseFloat(payload.Data.Amount.ValueInDisplayCurrency, 64)
 
-		// 1. MetaData & Error Extraction
-		var sessionID *uuid.UUID
-		var customerID *string
-		if payload.Data.Invoice.MetaData != nil {
-			meta := payload.Data.Invoice.MetaData
-			customerID = meta.UDF2
-			if meta.UDF1 != nil && *meta.UDF1 != "" {
-				if parsedUUID, err := uuid.Parse(*meta.UDF1); err == nil {
-					sessionID = &parsedUUID
-				}
+		// 1. Extract internal Invoice UUID from Metadata (UDF1)
+		var internalInvoiceID uuid.UUID
+		if payload.Data.Invoice.MetaData != nil && payload.Data.Invoice.MetaData.UDF1 != nil {
+			parsedID, err := uuid.Parse(*payload.Data.Invoice.MetaData.UDF1)
+			if err != nil {
+				log.Printf("WEBHOOK ERROR: Could not parse UDF1 UUID: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Metadata ID"})
+				return
 			}
+			internalInvoiceID = parsedID
 		}
 
+		// 2. Find the Session linked to this Invoice
+		// This ensures the Transaction gets a valid SessionID for the relationship
+		var sessionID *uuid.UUID
+		var session models.Session
+		if err := db.Where("invoice_id = ?", internalInvoiceID).First(&session).Error; err == nil {
+			sessionID = &session.ID
+		} else {
+			// log.Printf("WEBHOOK WARNING: No session found for Invoice %s. Proceeding without SessionID.", internalInvoiceID)
+		}
+
+		// 3. Extract Error Code if attempt failed
 		var errCode *string
 		if payload.Data.Transaction.Status == "FAILED" && payload.Data.Transaction.Error != nil {
 			code := payload.Data.Transaction.Error.Code
 			errCode = &code
 		}
 
-		// 2. Map to your Entity
+		// 4. Prepare the Transaction record
 		newTransaction := models.Transaction{
 			ID:           uuid.New(),
-			SessionID:    sessionID,
-			InvoiceID:    invoiceID,
+			InvoiceID:    internalInvoiceID,
+			SessionID:    sessionID, // This is now correctly linked!
+			MFInvoiceID:  mfInvoiceID,
+			Reference:    payload.Data.Transaction.PaymentId,
 			OrderID:      payload.Data.Invoice.Reference,
 			Status:       payload.Data.Transaction.Status,
 			InvoiceValue: invoiceVal,
-			// Use the specific PaymentId from the attempt as your unique reference
-			Reference:  payload.Data.Transaction.PaymentId,
-			CustomerID: customerID,
-			ErrorCode:  errCode,
+			ErrorCode:    errCode,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
 		}
 
-		// 3. CORRECT Upsert Logic
-		// Target 'reference' (which is the MyFatoorah PaymentId) instead of invoice_id.
-		// This allows multiple rows for the same InvoiceID (History)
-		// but prevents the SAME attempt from being saved twice if the webhook retries.
-		err := db.Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "reference"}}, // PaymentId is the unique anchor for the attempt
-			DoUpdates: clause.AssignmentColumns([]string{
-				"status",
-				"error_code",
-				"updated_at",
-			}),
-		}).Create(&newTransaction).Error
+		// 5. Execute DB updates in a transaction
+		err := db.Transaction(func(tx *gorm.DB) error {
+			// Upsert: Create if new attempt, Update if retry
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "reference"}}, // PaymentId uniqueness
+				DoUpdates: clause.AssignmentColumns([]string{"status", "error_code", "updated_at"}),
+			}).Create(&newTransaction).Error; err != nil {
+				return err
+			}
+
+			// Update parent Invoice status if payment was successful
+			if payload.Data.Transaction.Status == "SUCCESS" {
+				if err := tx.Model(&models.Invoice{}).
+					Where("id = ?", internalInvoiceID).
+					Update("status", "PAID").Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 
 		if err != nil {
-			log.Printf("DATABASE ERROR: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			log.Printf("WEBHOOK DB ERROR: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database update failed"})
 			return
-		}
-
-		// 4. Business Logic Trigger
-		if payload.Data.Transaction.Status == "SUCCESS" {
-			log.Printf("Order %s has been PAID successfully", payload.Data.Invoice.Reference)
-			// Call your service here to unlock features/complete order
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "Processed successfully"})

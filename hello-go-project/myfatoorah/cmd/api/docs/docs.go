@@ -56,6 +56,108 @@ const docTemplate = `{
                 }
             }
         },
+        "/invoices": {
+            "get": {
+                "description": "Retrieves all invoices with their nested session and transaction history.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "invoices"
+                ],
+                "summary": "List all invoices",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/hello-go-project_myfatoorah_internal_models.Invoice"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: database error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates an internal invoice and generates a MyFatoorah payment link.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "invoices"
+                ],
+                "summary": "Initiate Hosted Payment (Invoice/Link)",
+                "parameters": [
+                    {
+                        "description": "Invoice Initiation Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/hello-go-project_myfatoorah_internal_dto.CreatePaymentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/hello-go-project_myfatoorah_internal_dto.CreatePaymentResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/invoices/{id}": {
+            "get": {
+                "description": "Retrieves an invoice by its UUID, including all associated payment sessions and their transaction attempts.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "invoices"
+                ],
+                "summary": "Get a specific invoice",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Invoice UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/hello-go-project_myfatoorah_internal_models.Invoice"
+                        }
+                    },
+                    "404": {
+                        "description": "error: Invoice not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/sessions": {
             "get": {
                 "tags": [
@@ -159,6 +261,59 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "hello-go-project_myfatoorah_internal_dto.CreatePaymentRequest": {
+            "type": "object",
+            "required": [
+                "amount"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 100
+                },
+                "country_code": {
+                    "type": "string",
+                    "example": "20"
+                },
+                "customer_name": {
+                    "description": "Optional fields with defaults",
+                    "type": "string",
+                    "example": "Diaa Dawood"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "diaadawood.mas@gmail.com"
+                },
+                "expiry_date": {
+                    "type": "string"
+                },
+                "mobile_number": {
+                    "type": "string",
+                    "example": "1015433746"
+                },
+                "order_id": {
+                    "type": "string",
+                    "example": "ORD-2026-001"
+                }
+            }
+        },
+        "hello-go-project_myfatoorah_internal_dto.CreatePaymentResponse": {
+            "type": "object",
+            "properties": {
+                "invoice_id": {
+                    "type": "integer",
+                    "example": 6646004
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Payment link generated successfully"
+                },
+                "payment_url": {
+                    "type": "string",
+                    "example": "https://demo.myfatoorah.com/..."
+                }
+            }
+        },
         "hello-go-project_myfatoorah_internal_dto.CreateSessionRequest": {
             "type": "object",
             "required": [
@@ -181,6 +336,47 @@ const docTemplate = `{
                 },
                 "session_expiry": {
                     "description": "Nullable UTC time",
+                    "type": "string"
+                }
+            }
+        },
+        "hello-go-project_myfatoorah_internal_models.Invoice": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "customer_email": {
+                    "type": "string"
+                },
+                "customer_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "order_id": {
+                    "description": "Internal ID",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "PENDING, PAID, EXPIRED",
+                    "type": "string"
+                },
+                "total_value": {
+                    "type": "number"
+                },
+                "transactions": {
+                    "description": "Relationships",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/hello-go-project_myfatoorah_internal_models.Transaction"
+                    }
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -217,6 +413,9 @@ const docTemplate = `{
                     "description": "Internal Primary Key",
                     "type": "string"
                 },
+                "invoice_id": {
+                    "type": "string"
+                },
                 "operation_type": {
                     "description": "e.g., \"PAY\"",
                     "type": "string"
@@ -249,30 +448,37 @@ const docTemplate = `{
                 "customer_id": {
                     "type": "string"
                 },
+                "error_code": {
+                    "type": "string"
+                },
                 "error_message": {
-                    "description": "This IS NOT in the DB",
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
                 "invoice_id": {
-                    "type": "integer"
+                    "description": "Now a regular index: allows the link creation + multiple payment attempts",
+                    "type": "string"
                 },
                 "invoice_value": {
+                    "description": "Using decimal for money is safer than float64 in SQL",
                     "type": "number"
                 },
                 "merchant_id": {
                     "type": "string"
                 },
+                "mf_invoice_id": {
+                    "type": "integer"
+                },
                 "order_id": {
                     "type": "string"
                 },
                 "reference": {
+                    "description": "Unique anchor: prevents the same PaymentId from duplicating",
                     "type": "string"
                 },
                 "session_id": {
-                    "description": "Change string to sql.NullString\tInvoiceID    int       ` + "`" + `gorm:\"uniqueIndex\" json:\"invoice_id\"` + "`" + `",
                     "type": "string"
                 },
                 "status": {

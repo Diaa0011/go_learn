@@ -1,0 +1,14 @@
+- notes 30-3-2026
+	---about concurrency in go---
+	- goroutine isn't a task or process as in c# all go routines run in the same task or process
+	- channel is something like way of communications between different processes 
+	- select is for handling channels it stops the code execution until one of cases can run
+	- select is only random among cases that are ready at the exact same time if they are not ready it will be temporal readiness
+	
+	- Paraphrasing:
+
+		- Use channels when passing ownership of data
+
+	    	- Use mutexes for managing state
+
+

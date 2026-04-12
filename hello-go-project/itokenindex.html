@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyFatoorah - Secure Checkout</title>
+    <style>
+        :root { --primary: #007bff; --bg: #f4f7f9; --text: #333; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .payment-container { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+        h2 { margin: 0 0 20px 0; font-size: 1.4rem; text-align: center; }
+        .order-summary { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee; }
+        .order-summary div { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.9rem; }
+        
+        .card-list { margin-bottom: 20px; }
+        .card-item { 
+            border: 2px solid #edf2f7; padding: 12px; border-radius: 10px; margin-bottom: 10px; 
+            cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; 
+        }
+        .card-item:hover { border-color: var(--primary); }
+        .card-item.selected { border-color: var(--primary); background: #f0f7ff; }
+        .card-info { flex-grow: 1; }
+        .card-info strong { display: block; font-size: 0.95rem; }
+        .card-info small { color: #718096; font-family: 'Courier New', Courier, monospace; }
+        
+        button { 
+            width: 100%; background: var(--primary); color: white; border: none; padding: 14px; 
+            border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; 
+        }
+        button:disabled { background: #cbd5e0; cursor: not-allowed; }
+        
+        #message { margin-top: 15px; text-align: center; font-size: 0.85rem; font-weight: 500; }
+        .err { color: #e53e3e; }
+        .ok { color: #38a169; }
+    </style>
+</head>
+<body>
+
+<div class="payment-container">
+    <h2>Complete Payment</h2>
+    
+    <div class="order-summary">
+        <div><span>Order:</span> <strong>#1234</strong></div>
+        <div><span>Total:</span> <strong>10.00 KWD</strong></div>
+    </div>
+
+    <div id="card-selection" class="card-list">
+        <p style="text-align: center; font-size: 0.9rem; color: #666;">Retrieving saved cards...</p>
+    </div>
+
+    <button id="submit-btn" onclick="executePayment()" disabled>Pay Now</button>
+    <div id="message"></div>
+</div>
+
+<script>
+    // Reminder: Grant access at https://cors-anywhere.herokuapp.com/corsdemo
+    const PROXY = "https://cors-anywhere.herokuapp.com/";
+    const API_ENDPOINT = PROXY + "https://apitest.myfatoorah.com/v3/sessions";
+    const TOKEN = "Bearer SK_KWT_Uw42KMHRKdVNZLHC4KEBTkHxOMfVsQi4txBkvQ1A1iAbVDdfPRhFsMQLVLkLXY3S";
+
+    let selectedCardToken = null;
+
+    const payload = {
+        "PaymentMode": "COMPLETE_PAYMENT",
+        "Order": { "Amount": 10 },
+        "SaveCardOptions": {
+            "SaveToken": true,
+            "ShowSavedCardsInCardView": true,
+            "RetrieveSavedTokens": true
+        },
+        "Customer": { "Reference": "#1234" }
+    };
+
+    async function init() {
+        const container = document.getElementById('card-selection');
+        try {
+            const resp = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Authorization': TOKEN,
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const json = await resp.json();
+            
+            if (json.IsSuccess) {
+                // Accessing cards based on your specific JSON response
+                renderCards(json.Data?.Customer?.Cards || []);
+            } else {
+                throw new Error(json.Message || "Gateway error");
+            }
+        } catch (e) {
+            container.innerHTML = `<div class="err">Failed to load cards. <br><small>${e.message}</small></div>`;
+        }
+    }
+
+    function renderCards(cards) {
+        const container = document.getElementById('card-selection');
+        if (cards.length === 0) {
+            container.innerHTML = "<p style='text-align:center;'>No saved cards found.</p>";
+            return;
+        }
+
+        container.innerHTML = "<p style='font-size: 0.8rem; color: #4a5568; margin-bottom: 8px;'>Select Saved Card:</p>";
+        cards.forEach(card => {
+            const item = document.createElement('div');
+            item.className = 'card-item';
+            item.innerHTML = `
+                <div class="card-info">
+                    <strong>${card.Brand} Card</strong>
+                    <small>${card.Number}</small>
+                </div>
+                <span>${card.Is3DSVerified ? '🛡️' : ''}</span>
+            `;
+            item.onclick = () => {
+                document.querySelectorAll('.card-item').forEach(el => el.classList.remove('selected'));
+                item.classList.add('selected');
+                selectedCardToken = card.Token;
+                document.getElementById('submit-btn').disabled = false;
+            };
+            container.appendChild(item);
+        });
+    }
+
+    async function executePayment() {
+        const msg = document.getElementById('message');
+        const btn = document.getElementById('submit-btn');
+        
+        msg.className = "";
+        msg.innerText = "Processing...";
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch(API_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Authorization': TOKEN,
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, "Token": selectedCardToken })
+            });
+
+            const result = await resp.json();
+
+            if (result.IsSuccess && result.Data) {
+                msg.className = "ok";
+                msg.innerText = "Redirecting...";
+
+                // Redirect Logic:
+                // 1. Try SessionReference (Full URL)
+                // 2. Try PaymentURL (Full URL)
+                // 3. Fallback to constructing URL using SessionId
+                let target = result.Data.SessionReference || result.Data.PaymentURL;
+
+                if (!target && result.Data.SessionId) {
+                    target = `https://apitest.myfatoorah.com/v3/sessions/${result.Data.SessionId}/checkout`;
+                }
+
+                if (target) {
+                    window.location.href = target;
+                } else {
+                    throw new Error("Redirect target not found in API response.");
+                }
+            } else {
+                throw new Error(result.Message || "Payment failed");
+            }
+        } catch (e) {
+            msg.className = "err";
+            msg.innerText = e.message;
+            btn.disabled = false;
+        }
+    }
+
+    window.onload = init;
+</script>
+
+</body>
+</html>
