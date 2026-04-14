@@ -1,0 +1,113 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "This is a sample server for MyFatoorah.",
+        "title": "MyFatoorah Installment API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/payments/initiate": {
+            "post": {
+                "description": "Calls MyFatoorah InitiateSession, stores the intent in PaymentSessions table, and returns Session A.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Initiate Payment Session",
+                "parameters": [
+                    {
+                        "description": "Session Details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_request.CreateSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/hello-go-project_myfatoorahInstallment_internal_models.PaymentSession"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "API or Database Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "hello-go-project_myfatoorahInstallment_internal_dto_request.CreateSessionRequest": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string"
+                },
+                "payment_method_id": {
+                    "type": "number"
+                }
+            }
+        },
+        "hello-go-project_myfatoorahInstallment_internal_models.PaymentSession": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "execution_sid": {
+                    "description": "Session B: From Callback (Frontend)",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "initiate_sid": {
+                    "description": "Session A: From InitiateSession (Backend)",
+                    "type": "string"
+                },
+                "interval_days": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "PENDING, TOKENIZED, COMPLETED, FAILED",
+                    "type": "string"
+                },
+                "total_iterations": {
+                    "description": "Installment Parameters (Stored here until the first payment succeeds)",
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}
