@@ -39,7 +39,7 @@ func MyFatoorahWebhookHandler(db *gorm.DB) gin.HandlerFunc {
 		invoiceVal, _ := strconv.ParseFloat(payload.Data.Amount.ValueInDisplayCurrency, 64)
 
 		// 1. Extract internal Invoice UUID from Metadata (UDF1)
-		var internalInvoiceID uuid.UUID
+		var internalInvoiceID *uuid.UUID
 		if payload.Data.Invoice.MetaData != nil && payload.Data.Invoice.MetaData.UDF1 != nil {
 			parsedID, err := uuid.Parse(*payload.Data.Invoice.MetaData.UDF1)
 			if err != nil {
@@ -47,7 +47,7 @@ func MyFatoorahWebhookHandler(db *gorm.DB) gin.HandlerFunc {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Metadata ID"})
 				return
 			}
-			internalInvoiceID = parsedID
+			internalInvoiceID = &parsedID
 		}
 
 		// 2. Find the Session linked to this Invoice

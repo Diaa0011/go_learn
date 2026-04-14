@@ -41,8 +41,8 @@ type Transaction struct {
 	SessionID *uuid.UUID `gorm:"type:uuid;index" json:"session_id"`
 
 	// Now a regular index: allows the link creation + multiple payment attempts
-	InvoiceID   uuid.UUID `gorm:"index" json:"invoice_id"`
-	MFInvoiceID int       `gorm:"index" json:"mf_invoice_id"`
+	InvoiceID   *uuid.UUID `gorm:"index" json:"invoice_id"`
+	MFInvoiceID int        `gorm:"index" json:"mf_invoice_id"`
 
 	// Unique anchor: prevents the same PaymentId from duplicating
 	Reference *string `gorm:"unique;index" json:"reference"`
