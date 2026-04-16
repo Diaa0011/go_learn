@@ -8,7 +8,192 @@
     },
     "basePath": "/",
     "paths": {
-        "/payments/initiate": {
+        "/customers": {
+            "post": {
+                "description": "Accepts customer details and performs an upsert. Returns the customer ID and info.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Create or Update a Customer",
+                "parameters": [
+                    {
+                        "description": "Customer Details",
+                        "name": "customer",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_request.CreateCustomerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_response.StandardResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_response.CustomerResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid Input",
+                        "schema": {
+                            "$ref": "#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_response.StandardResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Database Error",
+                        "schema": {
+                            "$ref": "#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_response.StandardResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/customers/getall": {
+            "get": {
+                "description": "Retrieves customers with a global search (name/email/mobile) and dynamic sorting.",
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Get All Customers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by name, email, or mobile",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort column (default: created_at)",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort direction (asc/desc)",
+                        "name": "sort_dir",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/index.php": {
+            "post": {
+                "security": [
+                    {
+                        "MyFatoorahAuth": []
+                    }
+                ],
+                "description": "Receives payment status updates. If 'Captured', it creates the Installment, Transaction, and updates the Invoice.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Webhooks"
+                ],
+                "summary": "Handle MyFatoorah Webhook",
+                "responses": {}
+            }
+        },
+        "/sessions/execute": {
+            "post": {
+                "description": "Receives Session B from the frontend after card tokenization. Updates the existing record with the new ExecutionSID and amount.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sessions"
+                ],
+                "summary": "Tokenize and Update Session",
+                "parameters": [
+                    {
+                        "description": "Execution Details (Session B)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_request.ExecuteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message: Session updated successfully, status: TOKENIZED",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "error: Invalid request payload",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error: Session not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error: Failed to update session",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/initiate": {
             "post": {
                 "description": "Calls MyFatoorah InitiateSession, stores the intent in PaymentSessions table, and returns Session A.",
                 "consumes": [
@@ -18,7 +203,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Payments"
+                    "Sessions"
                 ],
                 "summary": "Initiate Payment Session",
                 "parameters": [
@@ -62,6 +247,25 @@
         }
     },
     "definitions": {
+        "hello-go-project_myfatoorahInstallment_internal_dto_request.CreateCustomerRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "phone"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
         "hello-go-project_myfatoorahInstallment_internal_dto_request.CreateSessionRequest": {
             "type": "object",
             "properties": {
@@ -70,6 +274,97 @@
                 },
                 "payment_method_id": {
                     "type": "number"
+                }
+            }
+        },
+        "hello-go-project_myfatoorahInstallment_internal_dto_request.ExecuteRequest": {
+            "type": "object",
+            "properties": {
+                "InvoiceValue": {
+                    "type": "number"
+                },
+                "OriginalSessionID": {
+                    "type": "string"
+                },
+                "RecurringModel": {
+                    "type": "object",
+                    "properties": {
+                        "IntervalDays": {
+                            "type": "integer"
+                        },
+                        "Iteration": {
+                            "type": "integer"
+                        },
+                        "RecurringType": {
+                            "type": "string"
+                        },
+                        "RetryCount": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "SessionId": {
+                    "description": "This is the Session B from frontend",
+                    "type": "string"
+                }
+            }
+        },
+        "hello-go-project_myfatoorahInstallment_internal_dto_response.CustomerResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "hello-go-project_myfatoorahInstallment_internal_dto_response.StandardResponse": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "hello-go-project_myfatoorahInstallment_internal_models.Customer": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "sessions": {
+                    "description": "Relationship: One customer can have many payment sessions",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/hello-go-project_myfatoorahInstallment_internal_models.PaymentSession"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -82,6 +377,12 @@
                 "created_at": {
                     "type": "string"
                 },
+                "customer": {
+                    "$ref": "#/definitions/hello-go-project_myfatoorahInstallment_internal_models.Customer"
+                },
+                "customer_id": {
+                    "type": "string"
+                },
                 "execution_sid": {
                     "description": "Session B: From Callback (Frontend)",
                     "type": "string"
@@ -89,11 +390,10 @@
                 "id": {
                     "type": "string"
                 },
-                "initiate_sid": {
-                    "description": "Session A: From InitiateSession (Backend)",
-                    "type": "string"
-                },
                 "interval_days": {
+                    "type": "integer"
+                },
+                "invoice_id": {
                     "type": "integer"
                 },
                 "status": {
@@ -103,9 +403,6 @@
                 "total_iterations": {
                     "description": "Installment Parameters (Stored here until the first payment succeeds)",
                     "type": "integer"
-                },
-                "user_id": {
-                    "type": "string"
                 }
             }
         }

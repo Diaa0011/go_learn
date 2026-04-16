@@ -1,5 +1,18 @@
 basePath: /
 definitions:
+  hello-go-project_myfatoorahInstallment_internal_dto_request.CreateCustomerRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+    required:
+    - email
+    - name
+    - phone
+    type: object
   hello-go-project_myfatoorahInstallment_internal_dto_request.CreateSessionRequest:
     properties:
       customer_id:
@@ -7,21 +20,84 @@ definitions:
       payment_method_id:
         type: number
     type: object
+  hello-go-project_myfatoorahInstallment_internal_dto_request.ExecuteRequest:
+    properties:
+      InvoiceValue:
+        type: number
+      OriginalSessionID:
+        type: string
+      RecurringModel:
+        properties:
+          IntervalDays:
+            type: integer
+          Iteration:
+            type: integer
+          RecurringType:
+            type: string
+          RetryCount:
+            type: integer
+        type: object
+      SessionId:
+        description: This is the Session B from frontend
+        type: string
+    type: object
+  hello-go-project_myfatoorahInstallment_internal_dto_response.CustomerResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+    type: object
+  hello-go-project_myfatoorahInstallment_internal_dto_response.StandardResponse:
+    properties:
+      data: {}
+      message:
+        type: string
+    type: object
+  hello-go-project_myfatoorahInstallment_internal_models.Customer:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      sessions:
+        description: 'Relationship: One customer can have many payment sessions'
+        items:
+          $ref: '#/definitions/hello-go-project_myfatoorahInstallment_internal_models.PaymentSession'
+        type: array
+      updated_at:
+        type: string
+    type: object
   hello-go-project_myfatoorahInstallment_internal_models.PaymentSession:
     properties:
       amount:
         type: number
       created_at:
         type: string
+      customer:
+        $ref: '#/definitions/hello-go-project_myfatoorahInstallment_internal_models.Customer'
+      customer_id:
+        type: string
       execution_sid:
         description: 'Session B: From Callback (Frontend)'
         type: string
       id:
         type: string
-      initiate_sid:
-        description: 'Session A: From InitiateSession (Backend)'
-        type: string
       interval_days:
+        type: integer
+      invoice_id:
         type: integer
       status:
         description: PENDING, TOKENIZED, COMPLETED, FAILED
@@ -29,8 +105,6 @@ definitions:
       total_iterations:
         description: Installment Parameters (Stored here until the first payment succeeds)
         type: integer
-      user_id:
-        type: string
     type: object
 info:
   contact: {}
@@ -38,7 +112,129 @@ info:
   title: MyFatoorah Installment API
   version: "1.0"
 paths:
-  /payments/initiate:
+  /customers:
+    post:
+      consumes:
+      - application/json
+      description: Accepts customer details and performs an upsert. Returns the customer
+        ID and info.
+      parameters:
+      - description: Customer Details
+        in: body
+        name: customer
+        required: true
+        schema:
+          $ref: '#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_request.CreateCustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            allOf:
+            - $ref: '#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_response.StandardResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_response.CustomerResponse'
+              type: object
+        "400":
+          description: Invalid Input
+          schema:
+            $ref: '#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_response.StandardResponse'
+        "500":
+          description: Database Error
+          schema:
+            $ref: '#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_response.StandardResponse'
+      summary: Create or Update a Customer
+      tags:
+      - Customers
+  /customers/getall:
+    get:
+      description: Retrieves customers with a global search (name/email/mobile) and
+        dynamic sorting.
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: size
+        type: integer
+      - description: Search by name, email, or mobile
+        in: query
+        name: search
+        type: string
+      - description: 'Sort column (default: created_at)'
+        in: query
+        name: sort
+        type: string
+      - description: Sort direction (asc/desc)
+        in: query
+        name: sort_dir
+        type: string
+      responses: {}
+      summary: Get All Customers
+      tags:
+      - Customers
+  /index.php:
+    post:
+      consumes:
+      - application/json
+      description: Receives payment status updates. If 'Captured', it creates the
+        Installment, Transaction, and updates the Invoice.
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - MyFatoorahAuth: []
+      summary: Handle MyFatoorah Webhook
+      tags:
+      - Webhooks
+  /sessions/execute:
+    post:
+      consumes:
+      - application/json
+      description: Receives Session B from the frontend after card tokenization. Updates
+        the existing record with the new ExecutionSID and amount.
+      parameters:
+      - description: Execution Details (Session B)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/hello-go-project_myfatoorahInstallment_internal_dto_request.ExecuteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: Session updated successfully, status: TOKENIZED'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 'error: Invalid request payload'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 'error: Session not found'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 'error: Failed to update session'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Tokenize and Update Session
+      tags:
+      - Sessions
+  /sessions/initiate:
     post:
       consumes:
       - application/json
@@ -72,5 +268,5 @@ paths:
             type: object
       summary: Initiate Payment Session
       tags:
-      - Payments
+      - Sessions
 swagger: "2.0"

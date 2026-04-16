@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: myfatoorah_db
+    container_name: myfatoorah_installment_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Test2222!!!!

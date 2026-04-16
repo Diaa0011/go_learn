@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MyFatoorah Recurring | v2 Pro Dashboard</title>
+    <title>MyFatoorah Recurring | Load Session Mode</title>
     <script src="https://demo.myfatoorah.com/payment/v1/session.js"></script>
 
     <style>
         :root { 
-            --primary: #8b5cf6; --bg: #f8fafc; --panel-bg: #ffffff;
+            --primary: #8b5cf6; --secondary: #10b981; --bg: #f8fafc; --panel-bg: #ffffff;
             --card-bg: #ffffff; --text-main: #0f172a; --text-muted: #64748b;
             --border: #e2e8f0; --json-bg: #1e293b;
         }
@@ -20,22 +20,24 @@
         .input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
         label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
         input, select { background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 6px; color: var(--text-main); font-family: inherit; }
-        .btn { cursor: pointer; border: none; border-radius: 8px; font-weight: 600; padding: 12px; transition: 0.2s; font-size: 14px; }
+        .btn { cursor: pointer; border: none; border-radius: 8px; font-weight: 600; padding: 12px; transition: 0.2s; font-size: 14px; margin-bottom: 5px; }
         .btn-primary { background: var(--primary); color: white; width: 100%; }
+        .btn-secondary { background: var(--secondary); color: white; width: 100%; }
         .btn-cors { background: #ef4444; color: white; padding: 8px; font-size: 11px; margin-bottom: 15px; width: 100%; }
         #embedded-payment-container { min-height: 320px; margin-top: 20px; border: 1px dashed var(--border); border-radius: 8px; padding: 10px; background: #fff; position: relative; }
         pre { background: var(--json-bg); padding: 15px; border-radius: 8px; font-size: 11px; color: #e2e8f0; overflow-x: auto; border: 1px solid var(--border); margin: 0; }
         .badge { padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; background: #ede9fe; color: #6d28d9; }
         .key { color: #a5b4fc; } .string { color: #34d399; } .number { color: #fbbf24; }
         #logViewer { max-height: 200px; font-family: monospace; font-size: 12px; }
+        .divider { text-align: center; margin: 15px 0; font-size: 10px; color: var(--text-muted); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
     <div class="panel left-panel">
         <div class="section-header">
-            <h2>Recurring Setup</h2>
-            <span class="badge">v2 EMBEDDED</span>
+            <h2>Payment Setup</h2>
+            <span class="badge">v2 DASHBOARD</span>
         </div>
 
         <button class="btn btn-cors" onclick="window.open('https://cors-anywhere.herokuapp.com/corsdemo', '_blank')">
@@ -44,12 +46,34 @@
         
         <div class="card">
             <div class="input-group">
-                <label>Recurring Type</label>
-                <select id="recType">
-                    <option value="CUSTOM">CUSTOM</option>
-                    <option value="MONTHLY">MONTHLY</option>
-                </select>
+                <label>Amount (KWD)</label>
+                <input type="number" id="invAmount" value="10">
             </div>
+            <div class="input-group">
+                <label>Customer Name</label>
+                <input type="text" id="custName" value="John Doe">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div class="input-group" style="flex:1">
+                    <label>Phone</label>
+                    <input type="text" id="custPhone" value="12345678">
+                </div>
+                <div class="input-group" style="flex:1">
+                    <label>Email</label>
+                    <input type="email" id="custEmail" value="john@example.com">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="input-group">
+                <label>Manual Session ID (Optional)</label>
+                <input type="text" id="manualSessionId" placeholder="Paste Session A here...">
+            </div>
+            <button class="btn btn-secondary" onclick="loadManualSession()">2a. Load Existing Session</button>
+            
+            <div class="divider">OR</div>
+
             <div style="display: flex; gap: 10px;">
                 <div class="input-group" style="flex:1">
                     <label>Interval (Days)</label>
@@ -60,12 +84,12 @@
                     <input type="number" id="iter" value="4">
                 </div>
             </div>
-            <button id="genBtn" class="btn btn-primary" onclick="initiateRecurringSession()">2. Get InitiateSession ID</button>
+            <button id="genBtn" class="btn btn-primary" onclick="initiateRecurringSession()">2b. Create New Session</button>
         </div>
 
         <div id="embedded-payment-container">
             <div id="mf-ui-placeholder" style="text-align:center; color:var(--text-muted); margin-top: 130px; font-size: 14px;">
-                Form will load after Step 2
+                Form will load after Session is provided
             </div>
         </div>
     </div>
@@ -80,6 +104,20 @@
     </div>
 
 <script>
+    // --- START: CACHE CLEARANCE ---
+    // Clears MyFatoorah SDK identifiers to prevent Session A/B overlap
+    (function clearMFCache() {
+        console.log("Pre-run cleanup: Removing mf_session_id from storage...");
+        localStorage.removeItem('mf_session_id');
+        sessionStorage.removeItem('mf_session_id');
+        // Clear any other keys that might start with mf
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.toLowerCase().includes('mf')) localStorage.removeItem(key);
+        }
+    })();
+    // --- END: CACHE CLEARANCE ---
+
     const API_TOKEN = "SK_KWT_Uw42KMHRKdVNZLHC4KEBTkHxOMfVsQi4txBkvQ1A1iAbVDdfPRhFsMQLVLkLXY3S";
     const PROXY = "https://cors-anywhere.herokuapp.com/"; 
     const BASE_URL = "https://apitest.myfatoorah.com/v2/";
@@ -89,6 +127,15 @@
         const color = isError ? "#f87171" : "#34d399";
         viewer.innerHTML += `> <span style="color:${color}">${msg}</span>\n`;
         viewer.scrollTop = viewer.scrollHeight;
+    }
+
+    function loadManualSession() {
+        const sid = document.getElementById('manualSessionId').value.trim();
+        if(!sid) return alert("Please enter a Session ID");
+        
+        log("Loading manual Session A: " + sid);
+        document.getElementById('mf-ui-placeholder').style.display = 'none';
+        renderEmbeddedForm(sid, "KWT"); 
     }
 
     async function initiateRecurringSession() {
@@ -118,22 +165,27 @@
                 log("Error: " + result.Message, true);
             }
         } catch (err) {
-            log("Proxy Error. Did you click the red button?", true);
+            log("Proxy Error. Ensure CORS anywhere is active.", true);
         }
     }
 
     function renderEmbeddedForm(sid, country) {
-        log("Loading Embedded Form using Session A...");
+        log("Initializing MyFatoorah UI (Forcing fresh Session B)...");
+        
+        // Ensure the container is empty before re-init
+        document.getElementById('embedded-payment-container').innerHTML = '';
+
         myfatoorah.init({
             sessionId: sid,
             countryCode: country,
             currencyCode: "KWD",
-            amount: "10",
+            amount: document.getElementById('invAmount').value,
             containerId: "embedded-payment-container",
             callback: (response) => {
                 if(response.isSuccess) {
-                    log("SUCCESS! Card Tokenized. Received Session B.");
-                    prepareBackendPayload(response.sessionId);
+                    log("SUCCESS! Card Tokenized.");
+                    log("New Session B: " + response.sessionId);
+                    prepareBackendPayload(response.sessionId, sid);
                 } else {
                     log("Card Error: " + JSON.stringify(response), true);
                 }
@@ -141,25 +193,25 @@
         });
     }
 
-    function prepareBackendPayload(sessionB) {
-        // This is the JSON you take to Postman/Go ExecutePayment
+    function prepareBackendPayload(sessionB, sessionA) {
         const payload = {
+            "OriginalSessionID": sessionA, // Added to help backend find the record
             "SessionId": sessionB,
-            "InvoiceValue": 10,
+            "InvoiceValue": parseFloat(document.getElementById('invAmount').value),
             "RecurringModel": {
-                "RecurringType": document.getElementById('recType').value,
-                "IntervalDays": parseInt(document.getElementById('intDays').value),
-                "Iteration": parseInt(document.getElementById('iter').value),
+                "RecurringType": "CUSTOM",
+                "IntervalDays": parseInt(document.getElementById('intDays').value) || 1,
+                "Iteration": parseInt(document.getElementById('iter').value) || 1,
                 "RetryCount": 3
             },
-            "CustomerName": "Diaa Dawood",
-            "CustomerMobile": "1015433746",
-            "CustomerEmail": "diaadawood.mas@gmail.com",
+            "CustomerName": document.getElementById('custName').value,
+            "CustomerMobile": document.getElementById('custPhone').value,
+            "CustomerEmail": document.getElementById('custEmail').value,
             "MobileCountryCode": "20"
         };
 
         document.getElementById('payloadViewer').innerHTML = syntaxHighlight(payload);
-        log("PAYLOAD READY. Use the SessionId above in ExecutePayment.");
+        log("PAYLOAD READY. POST this to your /UpdateSessionToTokenized endpoint.");
     }
 
     function syntaxHighlight(json) {

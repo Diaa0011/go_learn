@@ -7,11 +7,10 @@ import (
 )
 
 type PaymentSession struct {
-	ID     uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	UserID string    `gorm:"type:uuid;index" json:"user_id"`
-
-	// Session A: From InitiateSession (Backend)
-	InitiateSID string `gorm:"index" json:"initiate_sid"`
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	CustomerID uuid.UUID `gorm:"type:uuid;index" json:"customer_id"`
+	InvoiceID  int       `gorm:"type:int;index" json:"invoice_id"`
+	Customer   Customer  `gorm:"foreignKey:CustomerID" json:"customer,omitempty"`
 
 	// Session B: From Callback (Frontend)
 	ExecutionSID string `gorm:"index" json:"execution_sid"`

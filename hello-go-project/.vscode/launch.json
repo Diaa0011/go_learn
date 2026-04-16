@@ -8,5 +8,15 @@
             "mode": "auto",
             "program": "${workspaceFolder}/myfatoorah/cmd/api/main.go"
         }
+        ,{
+            "name": "Debug MyFatoorah Installment API",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/myfatoorahInstallment/cmd/api/main.go",
+            "cwd": "${workspaceFolder}/myfatoorahInstallment"
+
+
+        }
     ]
 }

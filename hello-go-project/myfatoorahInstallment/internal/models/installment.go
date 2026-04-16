@@ -7,8 +7,8 @@ import (
 )
 
 type Installment struct {
-	ID     uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	UserID uuid.UUID `gorm:"type:uuid;index" json:"user_id"`
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	CustomerID uuid.UUID `gorm:"type:uuid;index" json:"customer_id"`
 
 	// The "Master ID" from MyFatoorah recurring response
 	MFRecurringID string `gorm:"uniqueIndex" json:"mf_recurring_id"`
