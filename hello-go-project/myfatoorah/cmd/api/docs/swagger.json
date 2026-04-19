@@ -355,6 +355,9 @@
                     "description": "Internal ID",
                     "type": "string"
                 },
+                "source": {
+                    "$ref": "#/definitions/hello-go-project_myfatoorah_internal_models.PaymentSource"
+                },
                 "status": {
                     "description": "PENDING, PAID, EXPIRED",
                     "type": "string"
@@ -369,10 +372,35 @@
                         "$ref": "#/definitions/hello-go-project_myfatoorah_internal_models.Transaction"
                     }
                 },
+                "type": {
+                    "$ref": "#/definitions/hello-go-project_myfatoorah_internal_models.PaymentType"
+                },
                 "updated_at": {
                     "type": "string"
                 }
             }
+        },
+        "hello-go-project_myfatoorah_internal_models.PaymentSource": {
+            "type": "string",
+            "enum": [
+                "HOSTED",
+                "EMBEDDED"
+            ],
+            "x-enum-varnames": [
+                "SourceHosted",
+                "SourceEmbedded"
+            ]
+        },
+        "hello-go-project_myfatoorah_internal_models.PaymentType": {
+            "type": "string",
+            "enum": [
+                "ONE_TIME",
+                "INSTALLMENT"
+            ],
+            "x-enum-varnames": [
+                "TypeOneTime",
+                "TypeInstallment"
+            ]
         },
         "hello-go-project_myfatoorah_internal_models.Session": {
             "type": "object",

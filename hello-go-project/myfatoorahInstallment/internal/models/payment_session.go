@@ -18,9 +18,9 @@ type PaymentSession struct {
 	Amount float64 `gorm:"type:decimal(10,2)" json:"amount"`
 	Status string  `gorm:"type:varchar(20);default:'PENDING'" json:"status"` // PENDING, TOKENIZED, COMPLETED, FAILED
 
-	// Installment Parameters (Stored here until the first payment succeeds)
-	TotalIterations int `json:"total_iterations"`
-	IntervalDays    int `json:"interval_days"`
+	// // Installment Parameters (Stored here until the first payment succeeds)
+	// TotalIterations int `json:"total_iterations"`
+	// IntervalDays    int `json:"interval_days"`
 
 	CreatedAt time.Time `json:"created_at"`
 }

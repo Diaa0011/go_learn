@@ -71,6 +71,8 @@ definitions:
       order_id:
         description: Internal ID
         type: string
+      source:
+        $ref: '#/definitions/hello-go-project_myfatoorah_internal_models.PaymentSource'
       status:
         description: PENDING, PAID, EXPIRED
         type: string
@@ -81,9 +83,27 @@ definitions:
         items:
           $ref: '#/definitions/hello-go-project_myfatoorah_internal_models.Transaction'
         type: array
+      type:
+        $ref: '#/definitions/hello-go-project_myfatoorah_internal_models.PaymentType'
       updated_at:
         type: string
     type: object
+  hello-go-project_myfatoorah_internal_models.PaymentSource:
+    enum:
+    - HOSTED
+    - EMBEDDED
+    type: string
+    x-enum-varnames:
+    - SourceHosted
+    - SourceEmbedded
+  hello-go-project_myfatoorah_internal_models.PaymentType:
+    enum:
+    - ONE_TIME
+    - INSTALLMENT
+    type: string
+    x-enum-varnames:
+    - TypeOneTime
+    - TypeInstallment
   hello-go-project_myfatoorah_internal_models.Session:
     properties:
       amount:

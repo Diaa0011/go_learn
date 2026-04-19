@@ -112,56 +112,29 @@ func UpdateSessionToTokenized(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req request.ExecuteRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, response.StandardResponse{
-				Message: "Invalid request payload",
-			})
+			c.JSON(http.StatusBadRequest, response.StandardResponse{Message: "Invalid payload"})
 			return
 		}
 
-		// 1. Fetch Session & Preload Customer
 		var session models.PaymentSession
 		if err := db.Preload("Customer").Where("id = ?", req.OriginalSessionID).First(&session).Error; err != nil {
-			c.JSON(http.StatusNotFound, response.StandardResponse{
-				Message: "Session not found",
-			})
+			c.JSON(http.StatusNotFound, response.StandardResponse{Message: "Session not found"})
 			return
 		}
-
-		// 2. Prepare MyFatoorah Data
+		installmentId := uuid.New()
+		// 1. Prepare MyFatoorah Payload (Same as yours)
 		countryCode, localNumber := utils.SplitPhoneAndCode(session.Customer.Phone)
-
-		// 3. CREATE INTERNAL INVOICE (DRAFT)
-		// We create this before the API call to have our own reference
-		invoiceNumber := fmt.Sprintf("INV-%d-%s", time.Now().Unix(), session.Customer.Name[:3])
-		newInvoice := models.Invoice{
-			ID:            uuid.New(),
-			CustomerID:    session.Customer.ID,
-			InvoiceNumber: invoiceNumber,
-			Amount:        req.InvoiceValue,
-			TotalAmount:   req.InvoiceValue,
-			Status:        "PENDING", // Becomes PAID via Webhook
-			DueDate:       time.Now(),
-		}
-
-		if err := db.Create(&newInvoice).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, response.StandardResponse{
-				Message: "Failed to initialize internal invoice",
-			})
-			return
-		}
-
-		// 4. Prepare MyFatoorah Payload
 		mfPayload := map[string]interface{}{
 			"SessionId":          req.SessionId,
 			"InvoiceValue":       req.InvoiceValue,
+			"ExternalIdentifier": installmentId,
 			"CustomerName":       session.Customer.Name,
 			"DisplayCurrencyIso": "KWD",
 			"MobileCountryCode":  countryCode,
 			"CustomerMobile":     localNumber,
 			"CustomerEmail":      session.Customer.Email,
-			"CustomerReference":  session.ID.String(), // Link MyFatoorah to our Invoice UUID
+			"CustomerReference":  session.Customer.ID,
 			"Language":           "en",
-			"ExternalIdentifier": session.ID.String(),
 			"RecurringModel": map[string]interface{}{
 				"RecurringType": req.RecurringModel.RecurringType,
 				"IntervalDays":  req.RecurringModel.IntervalDays,
@@ -170,59 +143,84 @@ func UpdateSessionToTokenized(db *gorm.DB) gin.HandlerFunc {
 			},
 		}
 
-		// 5. Send Request to MyFatoorah
-		apiBaseURL := os.Getenv("MYFATOORAH_BASE_URL")
-		apiKey := os.Getenv("MYFATOORAH_TOKEN")
-		apiURL := apiBaseURL + os.Getenv("MYFATOORAH_API_V2") + os.Getenv("MYFATOORAH_EXECUTE_SESSION")
-
+		// 2. Call MyFatoorah
+		apiURL := os.Getenv("MYFATOORAH_BASE_URL") + "/v2/ExecutePayment" // Simplified for example
 		jsonData, _ := json.Marshal(mfPayload)
 		httpReq, _ := http.NewRequest("POST", apiURL, bytes.NewBuffer(jsonData))
-		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+		httpReq.Header.Set("Authorization", "Bearer "+os.Getenv("MYFATOORAH_TOKEN"))
 		httpReq.Header.Set("Content-Type", "application/json")
 
 		client := &http.Client{Timeout: 15 * time.Second}
 		resp, err := client.Do(httpReq)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, response.StandardResponse{Message: "Connection error"})
+			c.JSON(http.StatusInternalServerError, response.StandardResponse{Message: "API Connection Error"})
 			return
 		}
 		defer resp.Body.Close()
 
-		// 6. Decode Response
 		var mfResponse map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&mfResponse)
 
-		// 7. Handle Success/Failure
-		isSuccess, _ := mfResponse["IsSuccess"].(bool)
-		if !isSuccess {
-			// Mark internal invoice as failed if API fails immediately
-			db.Model(&newInvoice).Update("Status", "FAILED")
-			c.JSON(http.StatusBadRequest, response.StandardResponse{
-				Message: "MyFatoorah Execution Failed",
-				Data:    mfResponse,
-			})
+		if isSuccess, _ := mfResponse["IsSuccess"].(bool); !isSuccess {
+			c.JSON(http.StatusBadRequest, response.StandardResponse{Message: "MF Execution Failed", Data: mfResponse})
 			return
 		}
 
-		// 8. Capture MyFatoorah Invoice ID and Update Local Records
-		data, _ := mfResponse["Data"].(map[string]interface{})
-		mfInvoiceID, _ := data["InvoiceId"].(float64)
+		// 3. THE ATOMIC DRAFT (The core change)
+		data := mfResponse["Data"].(map[string]interface{})
+		mfInvoiceID := int(data["InvoiceId"].(float64))
+		mfRecurringID := data["RecurringId"].(string)
 
-		// Update our Invoice with the real MyFatoorah ID
-		db.Model(&newInvoice).Updates(models.Invoice{
-			MFInvoiceID: int(mfInvoiceID),
+		err = db.Transaction(func(tx *gorm.DB) error {
+			// 1. Create the Draft Installment FIRST
+			// We use the installmentId we generated at the top of the function
+			newInstallment := models.Installment{
+				ID:               installmentId, // This matches the ID you sent to MyFatoorah
+				CustomerID:       session.CustomerID,
+				MFRecurringID:    mfRecurringID,
+				Status:           "PENDING",
+				TotalAmount:      req.InvoiceValue,
+				IterationAmount:  req.InvoiceValue,
+				TotalIterations:  req.RecurringModel.Iteration,
+				CurrentIteration: 0,
+			}
+			if err := tx.Create(&newInstallment).Error; err != nil {
+				return err
+			}
+
+			// 2. Create the Draft Invoice and LINK IT
+			newInvoice := models.Invoice{
+				ID:            uuid.New(),
+				CustomerID:    session.CustomerID,
+				InstallmentID: installmentId, // CRUCIAL: Link to the installment above
+				MFInvoiceID:   mfInvoiceID,
+				InvoiceNumber: fmt.Sprintf("INV-%d", time.Now().Unix()),
+				Amount:        req.InvoiceValue,
+				TotalAmount:   req.InvoiceValue,
+				Status:        "PENDING",
+				DueDate:       time.Now(),
+			}
+			if err := tx.Create(&newInvoice).Error; err != nil {
+				return err
+			}
+
+			// 3. Update Session
+			session.Status = "AWAITING_WEBHOOK"
+			session.InvoiceID = mfInvoiceID
+			session.ExecutionSID = req.SessionId
+			// Note: If session belongs to the same DB transaction, use tx.Save
+			if err := tx.Save(&session).Error; err != nil {
+				return err
+			}
+
+			return nil
 		})
 
-		// Update Session
-		session.ExecutionSID = req.SessionId
-		session.Amount = req.InvoiceValue
-		session.Status = "AWAITING_WEBHOOK"
-		session.InvoiceID = int(mfInvoiceID) // Storing it in session for webhook lookup
-		db.Save(&session)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, response.StandardResponse{Message: "DB Error during drafting"})
+			return
+		}
 
-		c.JSON(http.StatusOK, response.StandardResponse{
-			Message: "Payment initiated. Awaiting OTP.",
-			Data:    mfResponse,
-		})
+		c.JSON(http.StatusOK, response.StandardResponse{Message: "Draft created. Awaiting payment.", Data: mfResponse})
 	}
 }

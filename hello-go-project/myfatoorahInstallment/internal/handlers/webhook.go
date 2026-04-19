@@ -1,10 +1,8 @@
 package handlers
 
 import (
-	"bytes"
-	"hello-go-project/myfatoorahInstallment/internal/dto/response"
+	"fmt"
 	"hello-go-project/myfatoorahInstallment/internal/models"
-	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -25,123 +23,153 @@ import (
 // @Security     MyFatoorahAuth
 func MyFatoorahWebhook(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1. READ AND LOG THE RAW RESPONSE
-		rawData, err1 := c.GetRawData()
-		if err1 != nil {
-			log.Printf("[Webhook Error] Could not read raw data: %v", err1)
-			c.Status(http.StatusBadRequest)
-			return
-		}
-		log.Printf("[MyFatoorah Webhook Raw Response]: %s", string(rawData))
-
-		// 2. RE-INJECT DATA INTO CONTEXT
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(rawData))
-
-		// 3. SECURE SIGNATURE CHECK
-		// secret := c.GetHeader("MyFatoorah-Signature")
-		// key := os.Getenv("WEBHOOK_SECRET")
-		// // Corrected: added "!" because if it's NOT valid, return 401
-		// if !utils.ValidateMyFatoorahSignature(rawData, key, secret) {
-		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid signature"})
-		// 	return
-		// }
-
-		// 4. BIND TO UPDATED NESTED STRUCT
-		var payload response.WebhookPayload
-		if err := c.ShouldBindJSON(&payload); err != nil {
-			log.Printf("[Webhook Error] JSON Binding: %v", err)
+		var rawPayload map[string]interface{}
+		if err := c.ShouldBindJSON(&rawPayload); err != nil {
 			c.Status(http.StatusBadRequest)
 			return
 		}
 
-		// 5. EXTRACT VALUES FROM NESTED JSON
-		// Convert String IDs from JSON to Integers for your Database
-		mfInvoiceID, _ := strconv.Atoi(payload.Data.Invoice.Id)
-		mfPaymentID := payload.Data.Transaction.PaymentId
-		txStatus := payload.Data.Transaction.Status
-		invoiceValue, _ := strconv.ParseFloat(payload.Amount.ValueInDisplayCurrency, 64)
+		// 1. Identify the Event Type
+		// Code 1 is in a nested "Event" object, Code 5 is often top-level or in "EventCode"
+		eventCode := extractEventCode(rawPayload)
 
-		sessionUUID := payload.Data.Invoice.ExternalIdentifier
-
-		// This is the UUID you passed in 'CustomerReference' or 'ExternalIdentifier'
-
-		// 6. Only proceed if the payment was successful
-		if txStatus != "SUCCESS" && payload.Data.Invoice.Status != "PAID" {
-			log.Printf("Payment not successful: Status %s for Invoice %d", txStatus, mfInvoiceID)
+		switch eventCode {
+		case 1: // PAYMENT_STATUS_CHANGED (The First/Manual Payment)
+			handleInitialPayment(c, db, rawPayload)
+		case 5: // RECURRING_UPDATES (Automated Installments)
+			handleRecurringUpdate(c, db, rawPayload)
+		default:
+			log.Printf("Unhandled Event Code: %v", eventCode)
 			c.Status(http.StatusOK)
-			return
+		}
+	}
+}
+
+// Helper to handle the FIRST payment (Event Code 1)
+func handleInitialPayment(c *gin.Context, db *gorm.DB, raw map[string]interface{}) {
+	data := raw["Data"].(map[string]interface{})
+	invoice := data["Invoice"].(map[string]interface{})
+	transaction := data["Transaction"].(map[string]interface{})
+
+	// SAFE CONVERSION:
+	var mfInvoiceID int
+	if idStr, ok := invoice["Id"].(string); ok {
+		mfInvoiceID, _ = strconv.Atoi(idStr)
+	} else if idNum, ok := invoice["Id"].(float64); ok {
+		mfInvoiceID = int(idNum)
+	}
+
+	mfPaymentID := transaction["PaymentId"].(string)
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// 1. Find the Invoice Draft we created in Phase A
+		var inv models.Invoice
+		if err := tx.Where("mf_invoice_id = ?", mfInvoiceID).First(&inv).Error; err != nil {
+			return fmt.Errorf("invoice draft not found: %d", mfInvoiceID)
 		}
 
-		// 7. Find the Session using the UUID (ExternalIdentifier)
-		// This is safer than looking up by Invoice ID
-		var session models.PaymentSession
-		if err := db.Where("id = ?", sessionUUID).First(&session).Error; err != nil {
-			log.Printf("Session not found for UUID: %s (MF Invoice: %d)", sessionUUID, mfInvoiceID)
-			c.Status(http.StatusOK)
-			return
+		// 2. Find the associated Installment (linked via foreign key or logic)
+		var inst models.Installment
+		if err := tx.Where("id = ?", inv.InstallmentID).First(&inst).Error; err != nil {
+			// Alternatively, if you didn't link them yet:
+			// tx.Where("customer_id = ? AND status = 'PENDING'", inv.CustomerID).First(&inst)
+			return err
 		}
 
-		// 8. ATOMIC EXECUTION
-		err := db.Transaction(func(tx *gorm.DB) error {
-
-			// A. Create the Installment Plan
-			installment := models.Installment{
-				ID:          uuid.New(),
-				CustomerID:  session.CustomerID,
-				TotalAmount: invoiceValue,
-				Status:      "ACTIVE",
-
-				// Note: If RecurringId isn't in this webhook,
-				// you might need to fetch it from a 'GetPaymentStatus' call
-				// or check payload.Data.Transaction.Card.Token
-				CreatedAt: time.Now(),
-			}
-			if err := tx.Create(&installment).Error; err != nil {
-				return err
-			}
-
-			// B. Create the Transaction
-			newTx := models.Transaction{
-				ID:               uuid.New(),
-				InstallmentID:    installment.ID,
-				PaymentSessionID: &session.ID,
-				MFInvoiceID:      mfInvoiceID,
-				MFPaymentID:      mfPaymentID,
-				IterationNumber:  1,
-				Amount:           invoiceValue,
-				Status:           "SUCCESS",
-				CreatedAt:        time.Now(),
-			}
-			if err := tx.Create(&newTx).Error; err != nil {
-				return err
-			}
-
-			// C. Update the Invoice
-			if err := tx.Model(&models.Invoice{}).
-				Where("mf_invoice_id = ?", mfInvoiceID).
-				Updates(map[string]interface{}{
-					"status":         "PAID",
-					"installment_id": installment.ID,
-					"paid_at":        time.Now(),
-				}).Error; err != nil {
-				return err
-			}
-
-			// D. Close the Session
-			session.Status = "COMPLETED"
-			if err := tx.Save(&session).Error; err != nil {
-				return err
-			}
-
-			return nil
+		// 3. Activate records
+		tx.Model(&inv).Updates(map[string]interface{}{
+			"status":  "PAID",
+			"paid_at": time.Now(),
 		})
 
-		if err != nil {
-			log.Printf("Webhook DB Transaction Failed: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal processing error"})
-			return
+		tx.Model(&inst).Updates(map[string]interface{}{
+			"status":            "ACTIVE",
+			"current_iteration": 1,
+		})
+
+		// 4. Create first history entry
+		tx.Create(&models.Transaction{
+			ID:              uuid.New(),
+			InstallmentID:   inst.ID,
+			MFInvoiceID:     mfInvoiceID,
+			MFPaymentID:     mfPaymentID,
+			IterationNumber: 1,
+			Amount:          inv.Amount,
+			Status:          "SUCCESS",
+		})
+
+		// 5. Update Session for UI feedback
+		tx.Model(&models.PaymentSession{}).Where("invoice_id = ?", mfInvoiceID).Update("status", "COMPLETED")
+
+		return nil
+	})
+
+	if err != nil {
+		log.Printf("[Webhook Code 1] Error: %v", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.Status(http.StatusOK)
+}
+
+// Helper to handle AUTOMATED installments (Event Code 5)
+func handleRecurringUpdate(c *gin.Context, db *gorm.DB, raw map[string]interface{}) {
+	data := raw["Data"].(map[string]interface{})
+	recurring := data["Recurring"].(map[string]interface{})
+	payment := data["Payment"].(map[string]interface{})
+
+	mfRecurringID := recurring["Id"].(string)
+	mfInvoiceID := int(payment["Invoice"].(map[string]interface{})["Id"].(float64))
+	nextPayDate := recurring["NextPayDate"].(string)
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var inst models.Installment
+		if err := tx.Where("mf_recurring_id = ?", mfRecurringID).First(&inst).Error; err != nil {
+			return err
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Infrastructure created successfully"})
+		// Prevent Duplicate Processing
+		var count int64
+		tx.Model(&models.Transaction{}).Where("mf_invoice_id = ?", mfInvoiceID).Count(&count)
+		if count > 0 {
+			return nil
+		}
+
+		// Update Installment Progress
+		inst.CurrentIteration += 1
+		if t, err := time.Parse(time.RFC3339, nextPayDate); err == nil {
+			inst.NextBillingDate = t
+		}
+		tx.Save(&inst)
+
+		// Create the new Transaction record for this month
+		tx.Create(&models.Transaction{
+			ID:              uuid.New(),
+			InstallmentID:   inst.ID,
+			MFInvoiceID:     mfInvoiceID,
+			Amount:          inst.IterationAmount,
+			Status:          "SUCCESS",
+			IterationNumber: inst.CurrentIteration,
+		})
+
+		return nil
+	})
+
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
 	}
+	c.Status(http.StatusOK)
+}
+
+func extractEventCode(raw map[string]interface{}) int {
+	// Check if it's the structure of Event 1
+	if event, ok := raw["Event"].(map[string]interface{}); ok {
+		return int(event["Code"].(float64))
+	}
+	// Check if it's the structure of Event 5
+	if code, ok := raw["EventCode"].(float64); ok {
+		return int(code)
+	}
+	return 0
 }
