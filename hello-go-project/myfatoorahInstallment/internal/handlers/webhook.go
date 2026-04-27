@@ -3,8 +3,10 @@ package handlers
 import (
 	"fmt"
 	"hello-go-project/myfatoorahInstallment/internal/models"
+	"hello-go-project/myfatoorahInstallment/internal/utils"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -23,11 +25,26 @@ import (
 // @Security     MyFatoorahAuth
 func MyFatoorahWebhook(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		var rawPayload map[string]interface{}
 		if err := c.ShouldBindJSON(&rawPayload); err != nil {
 			c.Status(http.StatusBadRequest)
 			return
 		}
+
+		myFatoorahPayload := utils.BuildSignture(rawPayload)
+		log.Printf("Payload for Signature: %s", myFatoorahPayload)
+		bytedPayload := []byte(myFatoorahPayload)
+
+		signature := c.GetHeader("MyFatoorah-Signature")
+		secret := os.Getenv("WEBHOOK_SECRET")
+		if !utils.ValidateMyFatoorahSignature(bytedPayload, secret, signature) {
+			log.Printf("body: %s", rawPayload)
+			log.Printf("Invalid signature for webhook: %s", signature)
+			c.Status(http.StatusUnauthorized)
+			return
+		}
+		log.Printf("Webhook signature validated successfully")
 
 		// 1. Identify the Event Type
 		// Code 1 is in a nested "Event" object, Code 5 is often top-level or in "EventCode"
